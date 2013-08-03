@@ -60,6 +60,10 @@ Private Sub Main()
     Dim IndexFile As String
     Dim MaxDrawings As Integer
         
+    Dim FS As New FileSystemObject
+    Dim FSfolder As Folder
+    Dim SubFolder As Folder
+    
     If DebugMode Then
         Debug.Print
         Debug.Print "---Start---"
@@ -73,42 +77,62 @@ Private Sub Main()
     Call QuickSort(DrawingList, LBound(DrawingList), UBound(DrawingList))
     
     SetGlobals
-    
+
     MakeDirectory (GlobalTreeRoot)
     ChDir GlobalTreeRoot
     
-    ' Create Top Level
-    TopLevelBOM = ActiveDocument.Name
-    TopLevelBOM = Left(TopLevelBOM, InStr(TopLevelBOM, ".") - 1)
-    MakeDirectory (TopLevelBOM)
-    ChDir TopLevelBOM
+    Set FSfolder = FS.GetFolder(GlobalTreeRoot)
     
-    For Index = 1 To UBound(DrawingList)
-        Item = DrawingList(Index).Number
-        WhatItIs = DrawingList(Index).Is
-        Select Case WhatItIs
-            Case 0
-                WhatItIs = "BOM"
-            Case 1
-                WhatItIs = "Drawing"
-            Case 2
-                WhatItIs = "Material"
-        End Select
+    ' Get top level BOM
+    TopLevelBOM = InputBox("Enter top level BOM:", "Drawing Number")
+    MakeDirectory (TopLevelBOM)
+    
+    For Each SubFolder In FSfolder.SubFolders
         
-        Item = Replace(Item, "/", "-")
+        ' Strip BOM name from path
+        Item = FS.GetFilename(SubFolder)
         
-        If DrawingList(Index).Is = BOM Then
-            MakeDirectory (Item)
-            IndexFile = GlobalCurrentIndexFile
-            Call CreateResultFile(Item, IndexFile)
-            IndexFile = GlobalResultFile
-            NewDoc = MsOfficeDoc(IndexFile)
-            If DebugMode Then Debug.Print "Main", Item, NewDoc
-        Else
-            ' Create file
-            MakeFile (Item & "." & WhatItIs)
-        End If
-    Next Index
+        ' Find the BOM, open it and extract the drawings/materials.
+        IndexFile = GlobalCurrentIndexFile
+        Call CreateResultFile(Item, IndexFile)
+        IndexFile = GlobalResultFile
+        NewDoc = MsOfficeDoc(IndexFile)
+        
+        ChDir SubFolder
+        
+        ' Create Top Level
+        TopLevelBOM = ActiveDocument.Name
+        TopLevelBOM = Left(TopLevelBOM, InStr(TopLevelBOM, ".") - 1)
+        MakeDirectory (TopLevelBOM)
+        ChDir TopLevelBOM
+        
+        For Index = 1 To UBound(DrawingList)
+            Item = DrawingList(Index).Number
+            WhatItIs = DrawingList(Index).Is
+            Select Case WhatItIs
+                Case 0
+                    WhatItIs = "BOM"
+                Case 1
+                    WhatItIs = "Drawing"
+                Case 2
+                    WhatItIs = "Material"
+            End Select
+            
+            Item = Replace(Item, "/", "-")
+            
+            If DrawingList(Index).Is = BOM Then
+                MakeDirectory (Item)
+                IndexFile = GlobalCurrentIndexFile
+                Call CreateResultFile(Item, IndexFile)
+                IndexFile = GlobalResultFile
+                NewDoc = MsOfficeDoc(IndexFile)
+                If DebugMode Then Debug.Print "Main", Item, NewDoc
+            Else
+                ' Create file
+                MakeFile (Item & "." & WhatItIs)
+            End If
+        Next Index
+    Next SubFolder
     Stop
 End Sub
 Public Sub SetGlobals()
@@ -315,9 +339,9 @@ Private Sub QuickSort(ByRef Field() As DrawingType, LB As Long, UB As Long)
     If P1 < UB Then Call QuickSort(Field, P1, UB)
 End Sub
 Public Function DirExists(OrigFile As String)
-    Dim fs
-    Set fs = CreateObject("Scripting.FileSystemObject")
-    DirExists = fs.folderexists(OrigFile)
+    Dim FS
+    Set FS = CreateObject("Scripting.FileSystemObject")
+    DirExists = FS.folderexists(OrigFile)
 End Function
 Function FileExists(ByVal AFileName As String) As Boolean
     On Error GoTo Catch
