@@ -87,6 +87,12 @@ Private Sub Main()
         Call BuildTree(SubFolder)
     Next SubFolder
     
+    If DebugMode Then
+        Debug.Print
+        Debug.Print "---Finish---"
+    End If
+    
+    ChDir "c:\temp\"
 End Sub
 Sub BuildTree(SubLevelBOM As Folder)
 
@@ -114,15 +120,15 @@ Sub BuildTree(SubLevelBOM As Folder)
     If InStr(UCase(CurrentBOMDoc), "XLS") Then
         If DebugMode Then Debug.Print "Opening ExcelDoc", CurrentBOMDoc
         Set App = CreateObject("Excel.Application")
-        App.Workbooks.Open CurrentBOMDoc
-        App.Visible = True
-'        Workbooks.Open(CurrentBOMDoc).Activate
+        App.Workbooks.Open CurrentBOMDoc, ReadOnly:=True
+        App.Visible = False
+        Workbooks.Open(CurrentBOMDoc).Activate
         WhatApp = Excel
     Else
         If DebugMode Then Debug.Print "Opening WordDoc", CurrentBOMDoc
-        Set WordApp = CreateObject("word.Application")
-        WordApp.Documents.Open CurrentBOMDoc
-        WordApp.Visible = True
+        Set App = CreateObject("word.Application")
+        App.Documents.Open CurrentBOMDoc, ReadOnly:=True
+        App.Visible = False
         Documents.Open(CurrentBOMDoc).Activate
         WhatApp = Word
     End If
@@ -162,11 +168,13 @@ Sub BuildTree(SubLevelBOM As Folder)
     ' Detect Word/Excel and close document
     If InStr(UCase(CurrentBOMDoc), "XLS") Then
         If DebugMode Then Debug.Print "Closing ExcelDoc", CurrentBOMDoc
+        App.Quit
+        Set App = Nothing
     Else
         If DebugMode Then Debug.Print "Closing WordDoc", CurrentBOMDoc
         'WordApp.Documents.Close
-        WordApp.Quit wdDoNotSaveChanges
-        Set WordApp = Nothing
+        App.Quit wdDoNotSaveChanges
+        Set App = Nothing
     End If
     
     ' Recursively build the tree
@@ -234,22 +242,32 @@ Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef
     Dim aRow As Integer
     Dim DrawingRowStart As Integer
     Dim DrawingColStart As Integer
-    Dim ListIndex As Integer
     Dim ActiveRow As Integer
+    Dim RefArray() As String    ' Need to use this for Excel to prevent error of using user defined type.
 
     If WhatApp = Excel Then
-        DrawingRowStart = Range(StartOfDrawings).Row
-        DrawingColStart = Range(StartOfDrawings).Column
+        DrawingRowStart = 13    'Range(StartOfDrawings).Row
+        DrawingColStart = 3     'Range(StartOfDrawings).Column
 
         MaxRows = Cells.Find("*", SearchOrder:=xlByRows, SearchDirection:=xlPrevious).Row
-        ListIndex = 1
+        ReDim RefArray(MaxRows)
+        ReDim Refs(MaxRows)
+        
+        Occupied = 1
         For ActiveRow = DrawingStartRow To MaxRows
-            Refs(ListIndex) = Cells(ActiveRow + DrawingRowStart + 1, DrawingColStart)
-            If Refs(ListIndex) <> "" Then
-                Refs(ListIndex) = OnlyAlphaNumericChars(Refs(ListIndex))
-                ListIndex = ListIndex + 1
+            RefArray(Occupied) = Cells(ActiveRow + DrawingRowStart + 1, DrawingColStart)
+            If RefArray(Occupied) <> "" Then
+                RefArray(Occupied) = OnlyAlphaNumericChars(RefArray(Occupied))
+                Occupied = Occupied + 1
             End If
         Next ActiveRow
+        
+        Occupied = Occupied - 1
+        ' Copy array into user defined array
+        For i = 1 To Occupied
+            Refs(i).Number = RefArray(i)
+            Refs(i).Is = IsDrawingType(Refs(i).Number)
+        Next i
     Else
     
         For Each aTable In ActiveDocument.Tables
@@ -279,7 +297,7 @@ Function StartOfDrawings() As String
 
     ' Set Search value
     SearchString = "SAP"
-    Application.FindFormat.Clear
+    'Application.FindFormat.Clear
     ' loop through all sheets
     For Each sh In ActiveWorkbook.Worksheets
         ' Find first instance on sheet
@@ -293,15 +311,15 @@ Function StartOfDrawings() As String
             SearchFormat:=False)
         If Not cl Is Nothing Then
             ' if found, remember location
-            FirstFound = cl.Address
+            'FirstFound = cl.Address
             ' format found cell
             Do
                 cl.Font.Bold = True
-                cl.Interior.ColorIndex = 3
+                'cl.Interior.ColorIndex = 3
                 ' find next instance
                 Set cl = sh.Cells.FindNext(After:=cl)
                 ' repeat until back where we started
-            Loop Until FirstFound = cl.Address
+            Loop Until 1 'FirstFound = cl.Address
         End If
     Next
     StartOfDrawings = FirstFound
