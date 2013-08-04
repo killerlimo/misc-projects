@@ -295,8 +295,8 @@ Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef
     Dim RefArray() As String    'Need to use this for Excel to prevent error of using user defined type.
 
     If WhatApp = Excel Then
-        DrawingRowStart = 13    'Range(StartOfDrawings).Row
-        DrawingColStart = 3     'Range(StartOfDrawings).Column
+        DrawingRowStart = Range(StartOfDrawings).row
+        DrawingColStart = Range(StartOfDrawings).Column
 
         With GlobalWorkbook.Worksheets(1)
             MaxRows = .Cells.Find("*", SearchOrder:=xlByRows, SearchDirection:=xlPrevious).row
@@ -350,7 +350,7 @@ Function StartOfDrawings() As String
     SearchString = "SAP"
     'Application.FindFormat.Clear
     'loop through all sheets
-    For Each sh In ActiveWorkbook.Worksheets
+    For Each sh In GlobalWorkbook.Worksheets
         'Find first instance on sheet
         Set cl = sh.Cells.Find(What:=SearchString, _
             After:=sh.Cells(1, 1), _
@@ -362,15 +362,7 @@ Function StartOfDrawings() As String
             SearchFormat:=False)
         If Not cl Is Nothing Then
             'if found, remember location
-            'FirstFound = cl.Address
-            'format found cell
-            Do
-                cl.Font.Bold = True
-                'cl.Interior.ColorIndex = 3
-                'find next instance
-                Set cl = sh.Cells.FindNext(After:=cl)
-                'repeat until back where we started
-            Loop Until 1 'FirstFound = cl.Address
+            FirstFound = cl.Address
         End If
     Next
     StartOfDrawings = FirstFound
