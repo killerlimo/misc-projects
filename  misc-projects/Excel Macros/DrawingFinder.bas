@@ -168,6 +168,7 @@ Sub BuildTree(SubLevelBOM As Folder)
         'ReadOnly:=True
         DocApp.Visible = False
         'Workbooks.Open(CurrentBOMDoc).Activate
+        'GlobalWorkbook.Activate
         WhatApp = Excel
     Else
         If DebugMode Then Debug.Print "Opening WordDoc", fs.GetFilename(CurrentBOMDoc)
@@ -297,25 +298,27 @@ Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef
         DrawingRowStart = 13    'Range(StartOfDrawings).Row
         DrawingColStart = 3     'Range(StartOfDrawings).Column
 
-        MaxRows = Cells.Find("*", SearchOrder:=xlByRows, SearchDirection:=xlPrevious).row
-        ReDim RefArray(MaxRows)
-        ReDim Refs(MaxRows)
-        
-        Occupied = 1
-        For ActiveRow = DrawingStartRow To MaxRows
-            RefArray(Occupied) = Cells(ActiveRow + DrawingRowStart + 1, DrawingColStart)
-            If RefArray(Occupied) <> "" Then
-                RefArray(Occupied) = OnlyAlphaNumericChars(RefArray(Occupied))
-                Occupied = Occupied + 1
-            End If
-        Next ActiveRow
-        
-        Occupied = Occupied - 1
-        'Copy array into user defined array
-        For i = 1 To Occupied
-            Refs(i).Number = RefArray(i)
-            Refs(i).Is = IsDrawingType(Refs(i).Number)
-        Next i
+        With GlobalWorkbook.Worksheets(1)
+            MaxRows = .Cells.Find("*", SearchOrder:=xlByRows, SearchDirection:=xlPrevious).row
+            ReDim RefArray(MaxRows)
+            ReDim Refs(MaxRows)
+            
+            Occupied = 1
+            For ActiveRow = DrawingRowStart To MaxRows
+                RefArray(Occupied) = GlobalWorkbook.Worksheets(1).Cells(ActiveRow + DrawingRowStart + 1, DrawingColStart)
+                If RefArray(Occupied) <> "" Then
+                    RefArray(Occupied) = OnlyAlphaNumericChars(RefArray(Occupied))
+                    Occupied = Occupied + 1
+                End If
+            Next ActiveRow
+            
+            Occupied = Occupied - 1
+            'Copy array into user defined array
+            For i = 1 To Occupied
+                Refs(i).Number = RefArray(i)
+                Refs(i).Is = IsDrawingType(Refs(i).Number)
+            Next i
+        End With
     Else
     
         With GlobalDoc.Tables(1)
