@@ -1,6 +1,7 @@
 Attribute VB_Name = "DrawingFinder"
 'Option Explicit
-Const Build As String = 6
+'Must select Tools-Microsoft Runtime & Microsoft Excel Objects
+Const Build As String = 8
 
 ' Define globals
 Public GlobalNum As String
@@ -19,19 +20,39 @@ Public GlobalLogFile As String
 Public Globalfilepath As String
 Public Globaldrive As String
 Public GlobalTutorialFile As String
-Public IndexArray() As String
+Public CurrentIndexArray() As String
+Public OldIndexArray() As String
+Public GlobalTreeRoot As String
+Public GlobalLowestBOM As String
+
+Enum WhatIsIt
+    BOM
+    DRG
+    Mat
+End Enum
+
+Enum AppType
+    Word
+    Excel
+End Enum
+
+Public Type DrawingType
+    Number As String
+    Is As WhatIsIt
+End Type
 
 Const ShowDurationSecs As Integer = 5
 
 Const NetProgramPath = "\\atle.bombardier.com\data\uk\pl\dos\Drgstate\"
 Const NetTransferPath = "\\atle.bombardier.com\data\uk\pl\dos\"
 Const NetDataPath = "\\atle.bombardier.com\data\uk\pl\dos2\"
-Const LocalProgramPath = "\Drgstate\"
+Const LocalProgramPath = "Drgstate\"
 Const LocalTransferPath = ""
 Const LocalLogPath = "c:\windows\temp\"
 Const LocalDataPath = "\"
 Const DesignNoteFile = "\\atle.bombardier.com\data\uk\pl\dos\drgstate\DesignNoteStateSAP.xlsx"
 Const DrawingFile = "\\atle.bombardier.com\data\uk\pl\dos\drgstate\DrgStateSAP.xlsx"
+Const TreeRoot = "TreeRoot\"
 
 Enum RequestType
     Current = 1
@@ -58,6 +79,143 @@ ByVal lngMilliseconds As Long) As Long
 Private Declare Function FindWindow Lib "user32" Alias "FindWindowA" ( _
 ByVal lpClassName As String, _
 ByVal lpWindowName As String) As Long
+Private Sub Main()
+'Get all the drawings/materials from the the current open drawing.
+'Use this list to form a linked list of all the sub level BOMs.
+'Look for sub level BOMs and open if Word or Excel
+'Create a folder & file structure to represent the data
+
+    Dim WhatItIs As String
+    Dim Index As Integer
+    Dim FS As New FileSystemObject
+    Dim FSfolder As Folder
+    Dim SubFolder As Folder
+    
+    If DebugMode Then
+        Debug.Print
+        Debug.Print "---Start---"
+    End If
+    
+   
+    SetGlobals
+
+    MakeDirectory (GlobalTreeRoot)
+    ChDir GlobalTreeRoot
+    
+    'Get top level BOM
+'   TopLevelBOM = InputBox("Enter top level BOM:", "Drawing Number")
+    TopLevelBOM = "L520002408"
+    MakeDirectory (TopLevelBOM)
+    
+    Set FSfolder = FS.GetFolder(GlobalTreeRoot)
+    For Each SubFolder In FSfolder.SubFolders
+        Call BuildTree(SubFolder)
+    Next SubFolder
+    
+    If DebugMode Then
+        Debug.Print
+        Debug.Print "---Finish---"
+    End If
+    
+    Shell "explorer /e, /root, " & GlobalTreeRoot, vbNormalFocus
+    '& ", /select, " & GlobalLowestBOM & "," & vbNormalFocus
+    
+    'Release folder
+    ChDir "c:\temp\"
+'   Stop
+End Sub
+Sub BuildTree(SubLevelBOM As Folder)
+
+    Dim FS As New FileSystemObject
+    Dim FSfolder As Folder
+    Dim SubFolder As Folder
+    Dim CurrentBOMDoc As String
+    Dim Item As String
+    Dim IndexFile As String
+    Dim DrawingList() As DrawingType
+    Dim MaxDrawings As Integer
+    Dim WhatApp As AppType
+    
+    'Strip BOM name from path
+    Item = FS.GetFilename(SubLevelBOM)
+    ChDir SubLevelBOM
+    
+    'Find the BOM, open it and extract the drawings/materials.
+    IndexFile = GlobalCurrentIndexFile
+    Call CreateResultFile(Item, IndexFile)
+    IndexFile = GlobalResultFile
+    CurrentBOMDoc = MsOfficeDoc(IndexFile)
+    
+    'Detect Word/Excel and open document
+    If InStr(UCase(CurrentBOMDoc), "XLS") Then
+        If DebugMode Then Debug.Print "Opening ExcelDoc", FS.GetFilename(CurrentBOMDoc)
+        Set DocApp = CreateObject("Excel.Application")
+        DocApp.Workbooks.Open CurrentBOMDoc, ReadOnly:=True
+        DocApp.Visible = False
+        Workbooks.Open(CurrentBOMDoc).Activate
+        WhatApp = Excel
+    Else
+        If DebugMode Then Debug.Print "Opening WordDoc", FS.GetFilename(CurrentBOMDoc)
+        Set DocApp = CreateObject("word.Application")
+        DocApp.Documents.Open CurrentBOMDoc, ReadOnly:=True
+        DocApp.Visible = False
+        Documents.Open(CurrentBOMDoc).Activate
+        WhatApp = Word
+    End If
+    
+    'Get a list of all the drawings/materials
+    Call GetAllDrawings(WhatApp, Refs:=DrawingList, Occupied:=MaxDrawings)
+    ReDim Preserve DrawingList(MaxDrawings) As DrawingType
+    Call QuickSort(DrawingList, LBound(DrawingList), UBound(DrawingList))
+    
+    For Index = 1 To UBound(DrawingList)
+        Item = DrawingList(Index).Number
+        WhatItIs = DrawingList(Index).Is
+        Select Case WhatItIs
+            Case 0
+                WhatItIs = "BOM"
+            Case 1
+                WhatItIs = "Drawing"
+            Case 2
+                WhatItIs = "Material"
+        End Select
+        
+        Item = Replace(Item, "/", "-")
+        
+        If DrawingList(Index).Is = BOM Then
+            MakeDirectory (Item)
+            IndexFile = GlobalCurrentIndexFile
+            Call CreateResultFile(Item, IndexFile)
+            IndexFile = GlobalResultFile
+            NewDoc = MsOfficeDoc(IndexFile)
+            If DebugMode Then Debug.Print "BOM", Item, FS.GetFilename(NewDoc)
+        Else
+            'Create file
+            MakeFile (Item & "." & WhatItIs)
+        End If
+    Next Index
+    
+    'Detect Word/Excel and close document
+    If InStr(UCase(CurrentBOMDoc), "XLS") Then
+        If DebugMode Then Debug.Print "Closing ExcelDoc", FS.GetFilename(CurrentBOMDoc)
+        DocApp.Workbooks.Close
+        DocApp.Quit
+        Set DocApp = Nothing
+    Else
+        If DebugMode Then Debug.Print "Closing WordDoc", FS.GetFilename(CurrentBOMDoc)
+        DocApp.Documents.Close
+        DocApp.Quit wdDoNotSaveChanges
+        Set DocApp = Nothing
+    End If
+    
+    'Recursively build the tree
+    Set FSfolder = FS.GetFolder(SubLevelBOM)
+    For Each SubFolder In FSfolder.SubFolders
+        Call BuildTree(SubFolder)
+        GlobalLowestBOM = SubFolder 'Keep track of lowest level BOM for best Win Explorer view.
+    Next SubFolder
+    
+End Sub
 Public Sub SetGlobals()
 ' Global variables for use throughout the program
     
@@ -71,7 +229,7 @@ Public Sub SetGlobals()
         GlobalProgramPath = NetProgramPath
         TransferPath = NetTransferPath
     Else
-        Drive = Switch(DirExists("e:\1_current_iss"), "e:\", DirExists("f:\1_current_iss"), "f:\", DirExists("g:\1_current_iss"), "g:\", DirExists("c:\1_current_iss"), "c:\", True, "Not Found")
+        Drive = Switch(DirExists("e:\1_current_iss"), "e:", DirExists("f:\1_current_iss"), "f:", DirExists("g:\1_current_iss"), "g:", DirExists("c:\1_current_iss"), "c:\", True, "Not Found")
         DataPath = Drive
         GlobalProgramPath = Drive & LocalProgramPath
         TransferPath = Drive & LocalTransferPath
@@ -97,6 +255,7 @@ Public Sub SetGlobals()
     GlobalTransferFolder = TransferPath & "1_files for filing"
     GlobalResultFile = LocalLogPath & "DrawingFinderResult.txt"
     GlobalTransferIndexFile = LocalLogPath & "DrawingFinderTransferIndex.txt"
+	GlobalTreeRoot = LocalLogPath & TreeRoot
     
     ' Assign Log file path
     ' Select local log file if user doesn't have write access to network log file
@@ -107,7 +266,141 @@ Public Sub SetGlobals()
     End If
 
 End Sub
+Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef Occupied As Integer)
+'Compile an array of all the drawing/material numbers
+
+    Dim aTable As Table
+    Dim aCell As Cell
+    Dim aRow As Integer
+    Dim DrawingRowStart As Integer
+    Dim DrawingColStart As Integer
+    Dim ActiveRow As Integer
+    Dim RefArray() As String    'Need to use this for Excel to prevent error of using user defined type.
+
+    If WhatApp = Excel Then
+        DrawingRowStart = 13    'Range(StartOfDrawings).Row
+        DrawingColStart = 3     'Range(StartOfDrawings).Column
+
+        MaxRows = Cells.Find("*", SearchOrder:=xlByRows, SearchDirection:=xlPrevious).Row
+        ReDim RefArray(MaxRows)
+        ReDim Refs(MaxRows)
+        
+        Occupied = 1
+        For ActiveRow = DrawingStartRow To MaxRows
+            RefArray(Occupied) = Cells(ActiveRow + DrawingRowStart + 1, DrawingColStart)
+            If RefArray(Occupied) <> "" Then
+                RefArray(Occupied) = OnlyAlphaNumericChars(RefArray(Occupied))
+                Occupied = Occupied + 1
+            End If
+        Next ActiveRow
+        
+        Occupied = Occupied - 1
+        'Copy array into user defined array
+        For i = 1 To Occupied
+            Refs(i).Number = RefArray(i)
+            Refs(i).Is = IsDrawingType(Refs(i).Number)
+        Next i
+    Else
+    
+        For Each aTable In ActiveDocument.Tables
+            MaxRows = aTable.Range.Rows.Count
+            
+            ReDim Refs(MaxRows)
+            
+            Occupied = 0
+            For aRow = 1 To MaxRows - 1
+                Set aCell = aTable.Cell(aRow + 1, 2)
+                Refs(aRow).Number = OnlyAlphaNumericChars(aCell.Range)
+                If Refs(aRow).Number <> "" Then
+                    Occupied = Occupied + 1
+                    Refs(aRow).Is = IsDrawingType(Refs(aRow).Number)
+                End If
+            Next aRow
+        Next aTable
+    End If
+End Sub
+Function StartOfDrawings() As String
+'Find start of drawing/material list
+
+    Dim SearchString As String
+    Dim SearchRange As Range, cl As Range
+    Dim FirstFound As String
+    Dim sh As Worksheet
+
+    'Set Search value
+    SearchString = "SAP"
+    'Application.FindFormat.Clear
+    'loop through all sheets
+    For Each sh In ActiveWorkbook.Worksheets
+        'Find first instance on sheet
+        Set cl = sh.Cells.Find(What:=SearchString, _
+            After:=sh.Cells(1, 1), _
+            LookIn:=xlValues, _
+            LookAt:=xlPart, _
+            SearchOrder:=xlByRows, _
+            SearchDirection:=xlNext, _
+            MatchCase:=False, _
+            SearchFormat:=False)
+        If Not cl Is Nothing Then
+            'if found, remember location
+            'FirstFound = cl.Address
+            'format found cell
+            Do
+                cl.Font.Bold = True
+                'cl.Interior.ColorIndex = 3
+                'find next instance
+                Set cl = sh.Cells.FindNext(After:=cl)
+                'repeat until back where we started
+            Loop Until 1 'FirstFound = cl.Address
+        End If
+    Next
+    StartOfDrawings = FirstFound
+End Function
+Private Function OnlyAlphaNumericChars(OrigString As String) As String
+'Remove unwanted characters
+
+    Dim lLen As Long
+    Dim sAns As String
+    Dim lCtr As Long
+    Dim sChar As String
+    
+    OrigString = Trim(OrigString)
+    lLen = Len(OrigString)
+    For lCtr = 1 To lLen
+        sChar = Mid(OrigString, lCtr, 1)
+        If IsAlphaNumeric(Mid(OrigString, lCtr, 1)) Then
+            sAns = sAns & sChar
+        End If
+    DoEvents '(optional, but if processing long string,
+    'necessary to prevent program from appearing to hang)
+    'if used, write your app so no re-entrancy into this function
+    'can occur)
+    Next
+        
+    OnlyAlphaNumericChars = sAns
+
+End Function
+Private Function IsAlphaNumeric(sChr As String) As Boolean
+'Check that charcter is in acceptable list
+
+    IsAlphaNumeric = sChr Like "[0-9A-Za-z,-,/]"
+End Function
+Function IsDrawingType(Item As String) As WhatIsIt
+'Return the type of drawing, BOM, DWG or MAT
+'Determine whether Item is a BOM. Look for new parts lists L52xxxxxxx or old SXL & GXL numbers.
+
+    If (Left(Item, 3) = "L52") Or (Item Like "*SXL*") Or (Item Like "*GXL*") Then
+        IsDrawingType = BOM
+    ElseIf (Len(Item) = 6 And Left(Item, 1) = "1") Or (Len(Item) = 9 And Left(Item, 2) = "52") Then
+            IsDrawingType = Mat
+    Else
+        IsDrawingType = DRG
+    End If
+
+    'If DebugMode Then Debug.Print "WhatIsIt", Item, IsDrawingType
+End Function
 Sub FilterSheet()
+
 
 ' Set up data filters on Item No. and Description columns.
 ' Enter up to 2 words in each search box, these will be OR'd
@@ -124,6 +417,7 @@ Sub FilterSheet()
         ' Get search data from user & convert to upper case
         GlobalNum = StrConv(InputBox("Enter part of the Drawing Number" & vbLf & "Up to 2 words can be entered" & vbLf _
         & "Use & | for AND OR", "Drawing Search", GlobalNum), vbUpperCase)
+		GlobalNum = Replace(GlobalNum, " ", "&")
         ' Split the input strings into an array of words.
         If InStr(1, GlobalNum, "&") > 0 Then
             NumWords = Split(GlobalNum, "&")
@@ -140,6 +434,7 @@ Sub FilterSheet()
         ' Get search data from user & convert to upper case
         GlobalDesc = StrConv(InputBox("Enter part of the Drawing Description" & vbLf & "Up to 2 words can be entered" & vbLf _
         & "Use & | for AND OR", "Drawing Search", GlobalDesc), vbUpperCase)
+        GlobalDesc = Replace(GlobalDesc, " ", "&")
         If InStr(1, GlobalDesc, "&") > 0 Then
             DescWords = Split(GlobalDesc, "&")
         ElseIf InStr(1, GlobalDesc, "|") > 0 Then
@@ -260,6 +555,76 @@ Sub ChooseAction()
             End If
         End If
 End Sub
+Function MsOfficeDoc(IndexFile) As String
+    'Search for item in index file
+    
+    Const MaxResults As Integer = 10
+    Dim ResultArray(1 To MaxResults) As String
+    Dim Index As Integer
+    
+    FileNum = FreeFile
+    MsOfficeDoc = ""
+    
+    Open IndexFile For Input As #FileNum
+    Line = 0
+    'While not eof or max array size
+    Do Until EOF(FileNum) Or Line = 9
+        Input #FileNum, ResultPath
+        If InStr(UCase(ResultPath), UCase(Item)) Then
+            Line = Line + 1
+            ResultArray(Line) = ResultPath
+        End If
+    Loop
+    Close #FileNum
+
+    
+    'More than 1 line indicates that at least 1 file has been found
+    If Line > MinLines Then
+'               ShowItem = True
+        For IntIndex = MinLines + 1 To Line
+            StrBuf = StrBuf & IntIndex & ". " & Right(GetFilename(ResultArray(IntIndex + MinLines)), 100) & vbLf
+        Next
+        Choice = -9
+        
+        'Look for an MS Office document
+        Index = 0
+        Do
+            Index = Index + 1
+            If UCase(ResultArray(Index + MinLines)) Like "*DOC*" Then MsOfficeDoc = ResultArray(Index + MinLines)
+            If UCase(ResultArray(Index + MinLines)) Like "*XLS*" Then MsOfficeDoc = ResultArray(Index + MinLines)
+        Loop Until Index = Line Or MsOfficDoc <> ""
+        
+    End If
+End Function
+Private Sub QuickSort(ByRef Field() As DrawingType, LB As Long, UB As Long)
+    Dim P1 As Long, P2 As Long, Ref As DrawingType, TEMP As DrawingType
+
+    P1 = LB
+    P2 = UB
+    Ref = Field((P1 + P2) / 2)
+
+    Do
+        Do While (Field(P1).Number < Ref.Number)
+            P1 = P1 + 1
+        Loop
+
+        Do While (Field(P2).Number > Ref.Number)
+            P2 = P2 - 1
+        Loop
+
+        If P1 <= P2 Then
+            TEMP = Field(P1)
+            Field(P1) = Field(P2)
+            Field(P2) = TEMP
+
+            P1 = P1 + 1
+            P2 = P2 - 1
+        End If
+    Loop Until (P1 > P2)
+
+    If LB < P2 Then Call QuickSort(Field, LB, P2)
+    If P1 < UB Then Call QuickSort(Field, P1, UB)
+End Sub
 Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As String) As Boolean
 ' Search for and then show or open what has been requested
 
@@ -291,6 +656,9 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
     Issue = Cells(ActiveCell.row, 3).Value
     Correction = Cells(ActiveCell.row, 4).Value
     ECRnum = Cells(ActiveCell.row, 6).Value
+    
+    ' Find and replace '/' with '-' for file name.
+    Drawing = Replace(Drawing, "/", "-")
     
     ' Format ECR number to match filenames
     ECRnum = Replace(ECRnum, "600000000000", "6-")
@@ -442,17 +810,19 @@ Sub Update(Optional UpdateMode As String = "Normal")
                 Call MsgBoxDelay("Creating Indexes...", "Update", ShowDurationSecs)
                 CreateIndexes
                 Call MsgBoxDelay("...Indexes Created", "Update", ShowDurationSecs)
-                CheckForArchivedFiles
-                
+                                
                 ' Only save workbook if the network drive exists
                 If DirExists(NetProgramPath) Then
                     ImportSAP
                     ' Save & set to read-only
+                    CheckForArchivedFiles
                     ThisWorkbook.Save
                     SetAttr GlobalProgramPath & GlobalFinderProgramFile, vbReadOnly
                     ' Write to log file
                     Call LogInformation("Update: Finished")
                     CloseSheet
+                Else
+                    CheckForArchivedFiles
                 End If
             End If
             
@@ -744,7 +1114,7 @@ Sub CloseSheet()
     RestoreToolbars
     Workbooks(GlobalFinderProgramFile).Close
 End Sub
-Sub ReadIndex(Index As String)
+Function ReadIndex(Index As String) As String()
 ' Read whole index text file into array for quicker searching
     Dim MyData As String
     
@@ -754,8 +1124,8 @@ Sub ReadIndex(Index As String)
     Get #1, , MyData
     Close #1
     
-    IndexArray() = Split(MyData, vbCrLf)
-End Sub
+    ReadIndex = Split(MyData, vbCrLf)
+End Function
 Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
 ' Check the drawing number on each row and write its path into column K
 
@@ -778,7 +1148,7 @@ Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
     Range("A8").Select
     
     ' Establish "For" loop to loop "numrows" number of times.
-    For i = StartRow To NumRows + StartRow
+    For i = StartRow To NumRows
         Drawing = Cells(i, DrawingCol).Value
         ECR = Cells(i, ECRCol).Value
         ' Find and replace '/' with '-' for file name.
@@ -796,31 +1166,43 @@ Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
         ECR = "\" & ECR
         
         ' Deal with Drawings
-        If Drawing <> "\" Then Results = Filter(IndexArray, Drawing)
-        If UBound(Results) >= 0 Then
-            If RecordPath Then
-                
-                For j = LBound(Results) To UBound(Results)
-                    Cells(i, PathCol + j) = Results(j)
-                Next j
-            End If
-        Else
-            ' Highlight the drawing number in red
-            If Highlight Then Cells(i, DrawingCol).Interior.ColorIndex = Red
+        If Drawing <> "\" Then
+            Results = Filter(CurrentIndexArray, Drawing)
+            If UBound(Results) >= 0 Then
+                If RecordPath Then
+                    For j = LBound(Results) To UBound(Results)
+                        Cells(i, PathCol + j) = Results(j)
+                    Next j
+                End If
+            Else:
+                Results = Filter(OldIndexArray, Drawing)
+		        If UBound(Results) >= 0 Then
+		            If RecordPath Then
+		                
+		                For j = LBound(Results) To UBound(Results)
+		                    Cells(i, PathCol + j) = Results(j)
+		                Next j
+		            End If
+		        Else
+		            ' Highlight the drawing number in red
+		            If Highlight Then Cells(i, DrawingCol).Interior.ColorIndex = Red
+		        End If
+		    End If
         End If
-        
         ' Deal with ECRs
-        If ECR <> "\" Then Results = Filter(IndexArray, ECR)
-        If UBound(Results) >= 0 Then
-            If RecordPath Then
-                ' Write results to columns k on.
-                For j = LBound(Results) To UBound(Results)
-                    Cells(i, 11 + j) = Results(j)
-                Next j
-            End If
-        Else
-            ' Highlight the drawing number in red
-            If Highlight Then Cells(i, ECRCol).Interior.ColorIndex = Red
+        If ECR <> "\" And ECR <> "" Then
+            Results = Filter(CurrentIndexArray, ECR)
+	        If UBound(Results) >= 0 Then
+	            If RecordPath Then
+	                ' Write results to columns k on.
+	                For j = LBound(Results) To UBound(Results)
+	                    Cells(i, 11 + j) = Results(j)
+	                Next j
+	            End If
+	        Else
+	            ' Highlight the drawing number in red
+	            If Highlight Then Cells(i, ECRCol).Interior.ColorIndex = Red
+	        End If
         End If
     Next i
     
@@ -831,7 +1213,11 @@ Sub CheckForArchivedFiles()
     Const Highlight As Boolean = True, RecordPath As Boolean = False
     SetGlobals
     Call LogInformation("ArchivedFiles: Start Search: Highlight=" & CStr(Highlight) & " Path=" & CStr(RecordPath))
-    ReadIndex (GlobalCurrentIndexFile)
+    CurrentIndexArray = ReadIndex(GlobalCurrentIndexFile)
+    OldIndexArray = ReadIndex(GlobalOldIndexFile)
+    
     Call CheckForPaths(Highlight, RecordPath)
     Call LogInformation("ArchivedFiles: Complete")
 End Sub
+
+

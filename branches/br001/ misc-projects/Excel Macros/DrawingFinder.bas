@@ -1,6 +1,6 @@
 Attribute VB_Name = "DrawingFinder"
 'Option Explicit
-Const Build As String = 7
+Const Build As String = 9
 
 ' Define globals
 Public GlobalNum As String
@@ -19,7 +19,8 @@ Public GlobalLogFile As String
 Public Globalfilepath As String
 Public Globaldrive As String
 Public GlobalTutorialFile As String
-Public IndexArray() As String
+Public CurrentIndexArray() As String
+Public OldIndexArray() As String
 
 Const ShowDurationSecs As Integer = 5
 
@@ -125,6 +126,7 @@ Sub FilterSheet()
         ' Get search data from user & convert to upper case
         GlobalNum = StrConv(InputBox("Enter part of the Drawing Number" & vbLf & "Up to 2 words can be entered" & vbLf _
         & "Use & | for AND OR", "Drawing Search", GlobalNum), vbUpperCase)
+        GlobalNum = Replace(GlobalNum, " ", "&")
         ' Split the input strings into an array of words.
         If InStr(1, GlobalNum, "&") > 0 Then
             NumWords = Split(GlobalNum, "&")
@@ -141,6 +143,7 @@ Sub FilterSheet()
         ' Get search data from user & convert to upper case
         GlobalDesc = StrConv(InputBox("Enter part of the Drawing Description" & vbLf & "Up to 2 words can be entered" & vbLf _
         & "Use & | for AND OR", "Drawing Search", GlobalDesc), vbUpperCase)
+        GlobalDesc = Replace(GlobalDesc, " ", "&")
         If InStr(1, GlobalDesc, "&") > 0 Then
             DescWords = Split(GlobalDesc, "&")
         ElseIf InStr(1, GlobalDesc, "|") > 0 Then
@@ -750,7 +753,7 @@ Sub CloseSheet()
     RestoreToolbars
     Workbooks(GlobalFinderProgramFile).Close
 End Sub
-Sub ReadIndex(Index As String)
+Function ReadIndex(Index As String) As String()
 ' Read whole index text file into array for quicker searching
     Dim MyData As String
     
@@ -760,8 +763,8 @@ Sub ReadIndex(Index As String)
     Get #1, , MyData
     Close #1
     
-    IndexArray() = Split(MyData, vbCrLf)
-End Sub
+    ReadIndex = Split(MyData, vbCrLf)
+End Function
 Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
 ' Check the drawing number on each row and write its path into column K
 
@@ -784,7 +787,7 @@ Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
     Range("A8").Select
     
     ' Establish "For" loop to loop "numrows" number of times.
-    For i = StartRow To NumRows + StartRow
+    For i = StartRow To NumRows
         Drawing = Cells(i, DrawingCol).Value
         ECR = Cells(i, ECRCol).Value
         ' Find and replace '/' with '-' for file name.
@@ -802,31 +805,42 @@ Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
         ECR = "\" & ECR
         
         ' Deal with Drawings
-        If Drawing <> "\" Then Results = Filter(IndexArray, Drawing)
-        If UBound(Results) >= 0 Then
-            If RecordPath Then
-                
-                For j = LBound(Results) To UBound(Results)
-                    Cells(i, PathCol + j) = Results(j)
-                Next j
+        If Drawing <> "\" Then
+            Results = Filter(CurrentIndexArray, Drawing)
+            If UBound(Results) >= 0 Then
+                If RecordPath Then
+                    For j = LBound(Results) To UBound(Results)
+                        Cells(i, PathCol + j) = Results(j)
+                    Next j
+                End If
+            Else:
+                Results = Filter(OldIndexArray, Drawing)
+                If UBound(Results) >= 0 Then
+                    If RecordPath Then
+                        For j = LBound(Results) To UBound(Results)
+                            Cells(i, PathCol + j) = Results(j)
+                        Next j
+                    End If
+                Else
+                    ' Highlight the drawing number in red
+                    If Highlight Then Cells(i, DrawingCol).Interior.ColorIndex = Red
+                End If
             End If
-        Else
-            ' Highlight the drawing number in red
-            If Highlight Then Cells(i, DrawingCol).Interior.ColorIndex = Red
         End If
-        
         ' Deal with ECRs
-        If ECR <> "\" Then Results = Filter(IndexArray, ECR)
-        If UBound(Results) >= 0 Then
-            If RecordPath Then
-                ' Write results to columns k on.
-                For j = LBound(Results) To UBound(Results)
-                    Cells(i, 11 + j) = Results(j)
-                Next j
+        If ECR <> "\" And ECR <> "" Then
+            Results = Filter(CurrentIndexArray, ECR)
+            If UBound(Results) >= 0 Then
+                If RecordPath Then
+                    ' Write results to columns k on.
+                    For j = LBound(Results) To UBound(Results)
+                        Cells(i, 11 + j) = Results(j)
+                    Next j
+                End If
+            Else
+                ' Highlight the drawing number in red
+                If Highlight Then Cells(i, ECRCol).Interior.ColorIndex = Red
             End If
-        Else
-            ' Highlight the drawing number in red
-            If Highlight Then Cells(i, ECRCol).Interior.ColorIndex = Red
         End If
     Next i
     
@@ -835,11 +849,15 @@ Sub CheckForArchivedFiles()
 ' Add the indexed path for the drawing to each row.
 
     Const Highlight As Boolean = True, RecordPath As Boolean = False
+    
     SetGlobals
     Call LogInformation("ArchivedFiles: Start Search: Highlight=" & CStr(Highlight) & " Path=" & CStr(RecordPath))
-    ReadIndex (GlobalCurrentIndexFile)
+    CurrentIndexArray = ReadIndex(GlobalCurrentIndexFile)
+    OldIndexArray = ReadIndex(GlobalOldIndexFile)
+    
     Call CheckForPaths(Highlight, RecordPath)
     Call LogInformation("ArchivedFiles: Complete")
+    
 End Sub
 
 
