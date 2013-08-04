@@ -1,4 +1,6 @@
 Attribute VB_Name = "DrawingTree"
+' Must select Tools-Microsoft Runtime & Microsoft Excel Objects
+
 Const MaxArray = 1000
 Const DebugMode = True
 Const Build As String = 1
@@ -30,6 +32,11 @@ Enum WhatIsIt
     Mat
 End Enum
 
+Enum AppType
+    Word
+    Excel
+End Enum
+
 Public Type DrawingType
     Number As String
     Is As WhatIsIt
@@ -53,13 +60,8 @@ Private Sub Main()
 ' Look for sub level BOMs and open if Word or Excel
 ' Create a folder & file structure to represent the data
 
-    Dim DrawingList() As DrawingType
-    Dim Item As String
     Dim WhatItIs As String
     Dim Index As Integer
-    Dim IndexFile As String
-    Dim MaxDrawings As Integer
-        
     Dim FS As New FileSystemObject
     Dim FSfolder As Folder
     Dim SubFolder As Folder
@@ -69,71 +71,110 @@ Private Sub Main()
         Debug.Print "---Start---"
     End If
     
-    ' Get a list of all the drawings/materials
-    Call GetAllDrawings(Refs:=DrawingList, Occupied:=MaxDrawings)
-    
-    ReDim Preserve DrawingList(MaxDrawings) As DrawingType
-        
-    Call QuickSort(DrawingList, LBound(DrawingList), UBound(DrawingList))
-    
+   
     SetGlobals
 
     MakeDirectory (GlobalTreeRoot)
     ChDir GlobalTreeRoot
     
-    Set FSfolder = FS.GetFolder(GlobalTreeRoot)
-    
     ' Get top level BOM
-    TopLevelBOM = InputBox("Enter top level BOM:", "Drawing Number")
+'    TopLevelBOM = InputBox("Enter top level BOM:", "Drawing Number")
+    TopLevelBOM = "L520002408"
     MakeDirectory (TopLevelBOM)
     
+    Set FSfolder = FS.GetFolder(GlobalTreeRoot)
     For Each SubFolder In FSfolder.SubFolders
-        
-        ' Strip BOM name from path
-        Item = FS.GetFilename(SubFolder)
-        
-        ' Find the BOM, open it and extract the drawings/materials.
-        IndexFile = GlobalCurrentIndexFile
-        Call CreateResultFile(Item, IndexFile)
-        IndexFile = GlobalResultFile
-        NewDoc = MsOfficeDoc(IndexFile)
-        
-        ChDir SubFolder
-        
-        ' Create Top Level
-        TopLevelBOM = ActiveDocument.Name
-        TopLevelBOM = Left(TopLevelBOM, InStr(TopLevelBOM, ".") - 1)
-        MakeDirectory (TopLevelBOM)
-        ChDir TopLevelBOM
-        
-        For Index = 1 To UBound(DrawingList)
-            Item = DrawingList(Index).Number
-            WhatItIs = DrawingList(Index).Is
-            Select Case WhatItIs
-                Case 0
-                    WhatItIs = "BOM"
-                Case 1
-                    WhatItIs = "Drawing"
-                Case 2
-                    WhatItIs = "Material"
-            End Select
-            
-            Item = Replace(Item, "/", "-")
-            
-            If DrawingList(Index).Is = BOM Then
-                MakeDirectory (Item)
-                IndexFile = GlobalCurrentIndexFile
-                Call CreateResultFile(Item, IndexFile)
-                IndexFile = GlobalResultFile
-                NewDoc = MsOfficeDoc(IndexFile)
-                If DebugMode Then Debug.Print "Main", Item, NewDoc
-            Else
-                ' Create file
-                MakeFile (Item & "." & WhatItIs)
-            End If
-        Next Index
+        Call BuildTree(SubFolder)
     Next SubFolder
-    Stop
+    
+End Sub
+Sub BuildTree(SubLevelBOM As Folder)
+
+    Dim FS As New FileSystemObject
+    Dim FSfolder As Folder
+    Dim SubFolder As Folder
+    Dim CurrentBOMDoc As String
+    Dim Item As String
+    Dim IndexFile As String
+    Dim DrawingList() As DrawingType
+    Dim MaxDrawings As Integer
+    Dim WhatApp As AppType
+    
+    ' Strip BOM name from path
+    Item = FS.GetFilename(SubLevelBOM)
+    ChDir SubLevelBOM
+    
+    ' Find the BOM, open it and extract the drawings/materials.
+    IndexFile = GlobalCurrentIndexFile
+    Call CreateResultFile(Item, IndexFile)
+    IndexFile = GlobalResultFile
+    CurrentBOMDoc = MsOfficeDoc(IndexFile)
+    
+    ' Detect Word/Excel and open document
+    If InStr(UCase(CurrentBOMDoc), "XLS") Then
+        If DebugMode Then Debug.Print "Opening ExcelDoc", CurrentBOMDoc
+        Set App = CreateObject("Excel.Application")
+        App.Workbooks.Open CurrentBOMDoc
+        App.Visible = True
+'        Workbooks.Open(CurrentBOMDoc).Activate
+        WhatApp = Excel
+    Else
+        If DebugMode Then Debug.Print "Opening WordDoc", CurrentBOMDoc
+        Set WordApp = CreateObject("word.Application")
+        WordApp.Documents.Open CurrentBOMDoc
+        WordApp.Visible = True
+        Documents.Open(CurrentBOMDoc).Activate
+        WhatApp = Word
+    End If
+    
+    ' Get a list of all the drawings/materials
+    Call GetAllDrawings(WhatApp, Refs:=DrawingList, Occupied:=MaxDrawings)
+    ReDim Preserve DrawingList(MaxDrawings) As DrawingType
+    Call QuickSort(DrawingList, LBound(DrawingList), UBound(DrawingList))
+    
+    For Index = 1 To UBound(DrawingList)
+        Item = DrawingList(Index).Number
+        WhatItIs = DrawingList(Index).Is
+        Select Case WhatItIs
+            Case 0
+                WhatItIs = "BOM"
+            Case 1
+                WhatItIs = "Drawing"
+            Case 2
+                WhatItIs = "Material"
+        End Select
+        
+        Item = Replace(Item, "/", "-")
+        
+        If DrawingList(Index).Is = BOM Then
+            MakeDirectory (Item)
+            IndexFile = GlobalCurrentIndexFile
+            Call CreateResultFile(Item, IndexFile)
+            IndexFile = GlobalResultFile
+            NewDoc = MsOfficeDoc(IndexFile)
+            If DebugMode Then Debug.Print "Main", Item, NewDoc
+        Else
+            ' Create file
+            MakeFile (Item & "." & WhatItIs)
+        End If
+    Next Index
+    
+    ' Detect Word/Excel and close document
+    If InStr(UCase(CurrentBOMDoc), "XLS") Then
+        If DebugMode Then Debug.Print "Closing ExcelDoc", CurrentBOMDoc
+    Else
+        If DebugMode Then Debug.Print "Closing WordDoc", CurrentBOMDoc
+        'WordApp.Documents.Close
+        WordApp.Quit wdDoNotSaveChanges
+        Set WordApp = Nothing
+    End If
+    
+    ' Recursively build the tree
+    Set FSfolder = FS.GetFolder(SubLevelBOM)
+    For Each SubFolder In FSfolder.SubFolders
+        Call BuildTree(SubFolder)
+    Next SubFolder
+    
 End Sub
 Public Sub SetGlobals()
 ' Global variables for use throughout the program
@@ -185,29 +226,86 @@ Public Sub SetGlobals()
     End If
 
 End Sub
-Private Sub GetAllDrawings(ByRef Refs() As DrawingType, ByRef Occupied As Integer)
+Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef Occupied As Integer)
 ' Compile an array of all the drawing/material numbers
 
     Dim aTable As Table
     Dim aCell As Cell
     Dim aRow As Integer
+    Dim DrawingRowStart As Integer
+    Dim DrawingColStart As Integer
+    Dim ListIndex As Integer
+    Dim ActiveRow As Integer
 
-    For Each aTable In ActiveDocument.Tables
-        MaxRows = aTable.Range.Rows.Count
-        
-        ReDim Refs(MaxRows)
-        
-        Occupied = 0
-        For aRow = 1 To MaxRows - 1
-            Set aCell = aTable.Cell(aRow + 1, 2)
-            Refs(aRow).Number = OnlyAlphaNumericChars(aCell.Range)
-            If Refs(aRow).Number <> "" Then
-                Occupied = Occupied + 1
-                Refs(aRow).Is = IsDrawingType(Refs(aRow).Number)
+    If WhatApp = Excel Then
+        DrawingRowStart = Range(StartOfDrawings).Row
+        DrawingColStart = Range(StartOfDrawings).Column
+
+        MaxRows = Cells.Find("*", SearchOrder:=xlByRows, SearchDirection:=xlPrevious).Row
+        ListIndex = 1
+        For ActiveRow = DrawingStartRow To MaxRows
+            Refs(ListIndex) = Cells(ActiveRow + DrawingRowStart + 1, DrawingColStart)
+            If Refs(ListIndex) <> "" Then
+                Refs(ListIndex) = OnlyAlphaNumericChars(Refs(ListIndex))
+                ListIndex = ListIndex + 1
             End If
-        Next aRow
-    Next aTable
+        Next ActiveRow
+    Else
+    
+        For Each aTable In ActiveDocument.Tables
+            MaxRows = aTable.Range.Rows.Count
+            
+            ReDim Refs(MaxRows)
+            
+            Occupied = 0
+            For aRow = 1 To MaxRows - 1
+                Set aCell = aTable.Cell(aRow + 1, 2)
+                Refs(aRow).Number = OnlyAlphaNumericChars(aCell.Range)
+                If Refs(aRow).Number <> "" Then
+                    Occupied = Occupied + 1
+                    Refs(aRow).Is = IsDrawingType(Refs(aRow).Number)
+                End If
+            Next aRow
+        Next aTable
+    End If
 End Sub
+Function StartOfDrawings() As String
+' Find start of drawing/material list
+
+    Dim SearchString As String
+    Dim SearchRange As Range, cl As Range
+    Dim FirstFound As String
+    Dim sh As Worksheet
+
+    ' Set Search value
+    SearchString = "SAP"
+    Application.FindFormat.Clear
+    ' loop through all sheets
+    For Each sh In ActiveWorkbook.Worksheets
+        ' Find first instance on sheet
+        Set cl = sh.Cells.Find(What:=SearchString, _
+            After:=sh.Cells(1, 1), _
+            LookIn:=xlValues, _
+            LookAt:=xlPart, _
+            SearchOrder:=xlByRows, _
+            SearchDirection:=xlNext, _
+            MatchCase:=False, _
+            SearchFormat:=False)
+        If Not cl Is Nothing Then
+            ' if found, remember location
+            FirstFound = cl.Address
+            ' format found cell
+            Do
+                cl.Font.Bold = True
+                cl.Interior.ColorIndex = 3
+                ' find next instance
+                Set cl = sh.Cells.FindNext(After:=cl)
+                ' repeat until back where we started
+            Loop Until FirstFound = cl.Address
+        End If
+    Next
+    StartOfDrawings = FirstFound
+End Function
 Private Function OnlyAlphaNumericChars(OrigString As String) As String
 ' Remove unwanted characters
 
@@ -249,7 +347,7 @@ Function IsDrawingType(Item As String) As WhatIsIt
         IsDrawingType = DRG
     End If
 
-    If DebugMode Then Debug.Print "WhatIsIt", Item, IsDrawingType
+    ' If DebugMode Then Debug.Print "WhatIsIt", Item, IsDrawingType
 End Function
 Sub CreateResultFile(Item As String, IndexFile As String)
 
@@ -399,3 +497,4 @@ Public Function GetFilename(Data As String, Optional Delimiter As String = "\") 
   GetFilename = StrReverse(Left(StrReverse(Data), InStr(1, StrReverse(Data), Delimiter) - 1))
    
 End Function
+
