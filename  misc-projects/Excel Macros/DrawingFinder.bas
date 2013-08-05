@@ -33,6 +33,7 @@ Enum WhatIsIt
     BOM
     DRG
     Mat
+    OTH
 End Enum
 
 Enum AppType
@@ -95,6 +96,7 @@ Private Sub PlantTree()
     Dim fs As New FileSystemObject
     Dim FSfolder As Folder
     Dim SubFolder As Folder
+    Dim TopLevelBOM As String
     
     If DebugMode Then
         Debug.Print
@@ -118,26 +120,30 @@ Private Sub PlantTree()
     ' Find and replace '/' with '-' for file name.
     TopLevelBOM = Replace(Drawing, "/", "-")
     
-'   TopLevelBOM = InputBox("Enter top level BOM:", "Drawing Number")
-'   TopLevelBOM = "L520002408"
-    MakeDirectory (TopLevelBOM)
+    'Check that it is a BOM
+    If IsDrawingType(TopLevelBOM) = BOM Then
     
-    Set FSfolder = fs.GetFolder(GlobalTreeRoot)
-    For Each SubFolder In FSfolder.SubFolders
-        Call BuildTree(SubFolder)
-    Next SubFolder
-    
-    If DebugMode Then
-        Debug.Print
-        Debug.Print "---Finish---"
+        MakeDirectory (TopLevelBOM)
+        
+        Set FSfolder = fs.GetFolder(GlobalTreeRoot)
+        For Each SubFolder In FSfolder.SubFolders
+            Call BuildTree(SubFolder)
+        Next SubFolder
+        
+        If DebugMode Then
+            Debug.Print
+            Debug.Print "---Finish---"
+        End If
+        
+        Shell "explorer /e, /root, " & GlobalTreeRoot, vbNormalFocus
+        '& ", /select, " & GlobalLowestBOM & "," & vbNormalFocus
+        
+        'Release folder
+        ChDir "c:\temp\"
+    '   Stop
+    Else
+        Call MsgBoxDelay("Drawing is not a BOM...", "DrawingTree", ShowDurationSecs)
     End If
-    
-    Shell "explorer /e, /root, " & GlobalTreeRoot, vbNormalFocus
-    '& ", /select, " & GlobalLowestBOM & "," & vbNormalFocus
-    
-    'Release folder
-    ChDir "c:\temp\"
-'   Stop
 End Sub
 Sub BuildTree(SubLevelBOM As Folder)
 
@@ -165,7 +171,7 @@ Sub BuildTree(SubLevelBOM As Folder)
     If InStr(UCase(CurrentBOMDoc), "XLS") Then
         If DebugMode Then Debug.Print "Opening ExcelDoc", fs.GetFilename(CurrentBOMDoc)
         Set DocApp = CreateObject("Excel.Application")
-        Set GlobalWorkbook = DocApp.Workbooks.Open(CurrentBOMDoc)
+        Set GlobalWorkbook = DocApp.Workbooks.Open(CurrentBOMDoc, ReadOnly:=True)
         'ReadOnly:=True
         DocApp.Visible = False
         'Workbooks.Open(CurrentBOMDoc).Activate
@@ -174,7 +180,7 @@ Sub BuildTree(SubLevelBOM As Folder)
     Else
         If DebugMode Then Debug.Print "Opening WordDoc", fs.GetFilename(CurrentBOMDoc)
         Set DocApp = CreateObject("word.Application")
-        Set GlobalDoc = DocApp.Documents.Open(CurrentBOMDoc)
+        Set GlobalDoc = DocApp.Documents.Open(CurrentBOMDoc, ReadOnly:=True)
         'ReadOnly:=True
         DocApp.Visible = False
         'Documents.Open(CurrentBOMDoc).Activate
@@ -207,8 +213,8 @@ Sub BuildTree(SubLevelBOM As Folder)
             IndexFile = GlobalResultFile
             NewDoc = MsOfficeDoc(IndexFile)
             If DebugMode Then Debug.Print "BOM", Item, fs.GetFilename(NewDoc)
-        Else
-            'Create file
+        ElseIf Not (WhatItIs = OTH) Then
+            'Create file if not OTH
             MakeFile (Item & "." & WhatItIs)
         End If
     Next Index
@@ -216,6 +222,7 @@ Sub BuildTree(SubLevelBOM As Folder)
     'Detect Word/Excel and close document
     If InStr(UCase(CurrentBOMDoc), "XLS") Then
         If DebugMode Then Debug.Print "Closing ExcelDoc", fs.GetFilename(CurrentBOMDoc)
+        ThisWorkbook.Saved = True   'Prevent do you want to save message
         DocApp.Workbooks.Close
         DocApp.Quit
         Set DocApp = Nothing
@@ -400,13 +407,15 @@ Private Function IsAlphaNumeric(sChr As String) As Boolean
     IsAlphaNumeric = sChr Like "[0-9A-Za-z,-,/]"
 End Function
 Function IsDrawingType(Item As String) As WhatIsIt
-'Return the type of drawing, BOM, DWG or MAT
+'Return the type of drawing, BOM, DWG, MAT or OTH
 'Determine whether Item is a BOM. Look for new parts lists L52xxxxxxx or old SXL & GXL numbers.
 
     If (Left(Item, 3) = "L52") Or (Item Like "*SXL*") Or (Item Like "*GXL*") Then
         IsDrawingType = BOM
     ElseIf (Len(Item) = 6 And Left(Item, 1) = "1") Or (Len(Item) = 9 And Left(Item, 2) = "52") Then
             IsDrawingType = Mat
+    ElseIf (UCase(Item) Like "*FITTED*") Then
+        IsDrawingType = OTH
     Else
         IsDrawingType = DRG
     End If
