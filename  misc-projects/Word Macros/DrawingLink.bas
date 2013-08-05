@@ -24,7 +24,7 @@ Public Globalfilepath As String
 Public Globaldrive As String
 Public GlobalTutorialFile As String
 
-Const Build As String = 3
+Const Build As String = 4
 
 Const ShowDurationSecs As Integer = 5
 
@@ -130,6 +130,7 @@ Dim name As String
     ' Determine whether anything has already been selected
     name = Selection
     ' Strip out any line feed type chars & replace / with -
+    name = Replace(name, ".", "")
     name = Replace(name, vbLf, "")
     name = Replace(name, vbCr, "")
     name = Replace(name, Chr(11), "")
@@ -138,9 +139,9 @@ Dim name As String
         ' Determine whether number is part or drawing
         Selection.MoveLeft Unit:=wdWord, Count:=1
         Selection.MoveRight Unit:=wdWord, Count:=1, Extend:=wdExtend
-        name = Selection
         ' Strip off trailing space
-        If Right(name, 1) = " " Then name = Left(name, Len(name) - 1)
+        If Selection.Characters.Last = " " Then Selection.End = Selection.End - 1
+        name = Selection
     End If
     
     ' Format ECR number to match filenames
