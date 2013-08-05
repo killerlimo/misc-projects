@@ -44,6 +44,8 @@ End Enum
 Public Type DrawingType
     Number As String
     Is As WhatIsIt
+    Issue As String
+    Title As String
 End Type
 
 Const ShowDurationSecs As Integer = 5
@@ -116,6 +118,7 @@ Private Sub PlantTree()
     Issue = Cells(ActiveCell.row, 3).Value
     Correction = Cells(ActiveCell.row, 4).Value
     ECRnum = Cells(ActiveCell.row, 6).Value
+    Title = Cells(ActiveCell.row, 2).Value
     
     ' Find and replace '/' with '-' for file name.
     TopLevelBOM = Replace(Drawing, "/", "-")
@@ -123,7 +126,7 @@ Private Sub PlantTree()
     'Check that it is a BOM
     If IsDrawingType(TopLevelBOM) = BOM Then
     
-        MakeDirectory (TopLevelBOM)
+        MakeDirectory (TopLevelBOM & "-" & Issue & " " & Title)
         
         Set FSfolder = fs.GetFolder(GlobalTreeRoot)
         For Each SubFolder In FSfolder.SubFolders
@@ -162,6 +165,7 @@ Sub BuildTree(SubLevelBOM As Folder)
     ChDir SubLevelBOM
     
     'Find the BOM, open it and extract the drawings/materials.
+    Item = Left(Item, InStr(Item, "-") - 1) 'Strip off issue and title.
     IndexFile = GlobalCurrentIndexFile
     Call CreateResultFile(Item, IndexFile)
     IndexFile = GlobalResultFile
@@ -195,6 +199,7 @@ Sub BuildTree(SubLevelBOM As Folder)
     For Index = 1 To UBound(DrawingList)
         Item = DrawingList(Index).Number
         WhatItIs = DrawingList(Index).Is
+        
         Select Case WhatItIs
             Case 0
                 WhatItIs = "BOM"
@@ -206,17 +211,25 @@ Sub BuildTree(SubLevelBOM As Folder)
         
         Item = Replace(Item, "/", "-")
         
-        If DrawingList(Index).Is = BOM Then
-            MakeDirectory (Item)
-            IndexFile = GlobalCurrentIndexFile
-            Call CreateResultFile(Item, IndexFile)
-            IndexFile = GlobalResultFile
-            NewDoc = MsOfficeDoc(IndexFile)
-            If DebugMode Then Debug.Print "BOM", Item, fs.GetFilename(NewDoc)
-        ElseIf Not (WhatItIs = OTH) Then
-            'Create file if not OTH
-            MakeFile (Item & "." & WhatItIs)
-        End If
+        Select Case DrawingList(Index).Is
+            Case BOM
+                Call FindInfo(Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
+                MakeDirectory (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
+                IndexFile = GlobalCurrentIndexFile
+                Call CreateResultFile(Item, IndexFile)
+                IndexFile = GlobalResultFile
+                NewDoc = MsOfficeDoc(IndexFile)
+                If DebugMode Then Debug.Print "BOM", Item, fs.GetFilename(NewDoc)
+            Case DRG
+                Call FindInfo(Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
+                MakeDirectory (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
+            Case Mat
+                'Create file if not OTH
+                MakeFile (Item & "." & WhatItIs)
+            Case OTH
+                'Nothing to do
+        End Select
+        
     Next Index
     
     'Detect Word/Excel and close document
@@ -291,6 +304,27 @@ Public Sub SetGlobals()
     End If
 
 End Sub
+Public Sub FindInfo(SearchString As String, ByRef Issue As String, ByRef Title As String)
+    'Look for the issue and title in the spreadsheet
+    
+    'Add / back in for search
+    SearchString = Replace(SearchString, "-", "/")
+    Set sh = ThisWorkbook.Worksheets(1)
+        'Find first instance on sheet
+        Set cl = sh.Cells.Find(What:=SearchString, _
+            After:=sh.Cells(1, 1), _
+            LookIn:=xlValues, _
+            LookAt:=xlPart, _
+            SearchOrder:=xlByRows, _
+            SearchDirection:=xlNext, _
+            MatchCase:=False, _
+            SearchFormat:=False)
+   
+        Issue = sh.Cells(Range(cl.Address).row, 3).Value
+        Title = sh.Cells(Range(cl.Address).row, 2).Value
+   
+End Sub
+
 Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef Occupied As Integer)
 'Compile an array of all the drawing/material numbers
 
