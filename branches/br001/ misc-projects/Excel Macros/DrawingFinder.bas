@@ -1,7 +1,7 @@
 Attribute VB_Name = "DrawingFinder"
 'Option Explicit
-'Must select Tools-Microsoft Runtime & Microsoft Excel Objects
-Const Build As String = 10
+'Must select Tools-Microsoft Runtime & Microsoft Word Object Library
+Const Build As String = 11
 Const DebugMode = True
 
 ' Define globals
@@ -105,6 +105,7 @@ Private Sub PlantTree()
     SetGlobals
 
     MakeDirectory (GlobalTreeRoot)
+    ChDrive "c:"
     ChDir GlobalTreeRoot
     
     'Get top level BOM
@@ -305,7 +306,7 @@ Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef
             
             Occupied = 1
             For ActiveRow = DrawingRowStart To MaxRows
-                RefArray(Occupied) = GlobalWorkbook.Worksheets(1).Cells(ActiveRow + DrawingRowStart + 1, DrawingColStart)
+                RefArray(Occupied) = GlobalWorkbook.Worksheets(1).Cells(ActiveRow + 1, DrawingColStart)
                 If RefArray(Occupied) <> "" Then
                     RefArray(Occupied) = OnlyAlphaNumericChars(RefArray(Occupied))
                     Occupied = Occupied + 1
@@ -331,10 +332,12 @@ Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef
                 Set aCell = .cell(aRow + 1, 2)
                 Refs(aRow).Number = OnlyAlphaNumericChars(aCell.Range)
                 If Refs(aRow).Number <> "" Then
+                    Refs(Occupied).Number = Refs(aRow).Number   'Use Occupied index to filter out empty elements
+                    Refs(Occupied).Is = IsDrawingType(Refs(aRow).Number)
                     Occupied = Occupied + 1
-                    Refs(aRow).Is = IsDrawingType(Refs(aRow).Number)
                 End If
             Next aRow
+            Occupied = Occupied - 1
         End With
     End If
 End Sub
@@ -764,7 +767,7 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
 End Function
 Private Function FindFile(ByVal sFol As String, sFile As String, _
    nDirs As Long, nFiles As Long) As Currency
-   Dim tFld As Folder, tFil As file, FileName As String
+   Dim tFld As Folder, tFil As File, FileName As String
    
  '  On Error GoTo Catch
    Set fld = fso.GetFolder(sFol)
@@ -1125,11 +1128,12 @@ Public Function IsFilewriteable(ByVal filePath As String) As Boolean
     IsFilewriteable = (Err.Number = 0)
 End Function
 Sub MakeDirectory(NewDir As String)
+    If DebugMode Then Debug.Print "MkDir:", CurDir, NewDir
     If Not DirExists(NewDir) Then MkDir NewDir
 End Sub
 Sub MakeFile(NewFile As String)
     Set fso = CreateObject("Scripting.FileSystemObject")
-    
+    If DebugMode Then Debug.Print "MkFile:", CurDir, NewFile
     If Not FileExists(NewFile) Then
         Set oFile = fso.CreateTextFile(NewFile)
         oFile.WriteLine NewFile
