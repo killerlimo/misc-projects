@@ -326,16 +326,19 @@ Public Sub FindInfo(ByVal SearchString As String, ByRef Issue As String, ByRef T
         'Find first instance on sheet
         Set cl = sh.Cells.Find(What:=SearchString, _
             After:=sh.Cells(1, 1), _
-            LookIn:=xlValues, _
+            LookIn:=xlFormula, _
             LookAt:=xlPart, _
             SearchOrder:=xlByRows, _
             SearchDirection:=xlNext, _
             MatchCase:=False, _
             SearchFormat:=False)
-   
+    If cl Is Nothing Then
+        Issue = ""
+        Title = ""
+    Else
         Issue = sh.Cells(Range(cl.Address).row, 3).Value
         Title = sh.Cells(Range(cl.Address).row, 2).Value
-   
+    End If
 End Sub
 
 Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef Occupied As Integer)
