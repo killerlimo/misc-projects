@@ -104,8 +104,7 @@ Private Sub PlantTree()
         Debug.Print
         Debug.Print "---Start---"
     End If
-    
-   
+       
     SetGlobals
 
     MakeDirectory (GlobalTreeRoot)
@@ -324,8 +323,18 @@ Public Sub FindInfo(ByVal SearchString As String, ByRef Issue As String, ByRef T
     SearchString = Replace(SearchString, "-", "/")
     Set sh = ThisWorkbook.Worksheets(1)
         'Find first instance on sheet
-        'Use match? c = Application.WorksheetFunction.Match(SearchString, Range("Sheet1!A1:A999"), 0)
-
+        'c = Application.WorksheetFunction.Match(SearchString, ActiveWorkbook.Sheets(1).Range("A1", "A999"), 1)
+        
+    'Used to create a new view where all cells are shown to allow FIND to work properly.
+    On Error Resume Next
+    ThisWorkbook.CustomViews("FindView").Show
+    On Error GoTo 0
+        
+    With sh ' CodeName of filtered sheet
+        Application.Goto .Range("A1")
+        ThisWorkbook.CustomViews.Add "FindView", False, True
+        .AutoFilterMode = False
+        
         Set cl = sh.Cells.Find(What:=SearchString, _
             After:=sh.Cells(1, 1), _
             LookIn:=xlValues, _
@@ -334,6 +343,9 @@ Public Sub FindInfo(ByVal SearchString As String, ByRef Issue As String, ByRef T
             SearchDirection:=xlNext, _
             MatchCase:=False, _
             SearchFormat:=False)
+         ThisWorkbook.CustomViews("FindView").Show
+    End With
+    
     If cl Is Nothing Then
         Issue = ""
         Title = ""
@@ -342,7 +354,6 @@ Public Sub FindInfo(ByVal SearchString As String, ByRef Issue As String, ByRef T
         Title = sh.Cells(Range(cl.Address).row, 2).Value
     End If
 End Sub
-
 Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef Occupied As Integer)
 'Compile an array of all the drawing/material numbers
 
