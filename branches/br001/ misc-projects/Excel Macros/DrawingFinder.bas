@@ -1190,7 +1190,10 @@ Sub MakeDirectory(NewDir As String)
 End Sub
 Sub MakeFile(NewFile As String)
     Set fso = CreateObject("Scripting.FileSystemObject")
-    If DebugMode Then Debug.Print "MkFile:", CurDir, NewFile
+    
+    'Remove any /
+    NewFile = Replace(NewFile, "/", "-")
+    If DebugMode Then Debug.Print "MkFile:", NewFile
     If Not FileExists(NewFile) Then
         Set oFile = fso.CreateTextFile(NewFile)
         oFile.WriteLine NewFile
