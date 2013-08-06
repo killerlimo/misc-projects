@@ -324,9 +324,11 @@ Public Sub FindInfo(ByVal SearchString As String, ByRef Issue As String, ByRef T
     SearchString = Replace(SearchString, "-", "/")
     Set sh = ThisWorkbook.Worksheets(1)
         'Find first instance on sheet
+        'Use match? c = Application.WorksheetFunction.Match(SearchString, Range("Sheet1!A1:A999"), 0)
+
         Set cl = sh.Cells.Find(What:=SearchString, _
             After:=sh.Cells(1, 1), _
-            LookIn:=xlFormula, _
+            LookIn:=xlValues, _
             LookAt:=xlPart, _
             SearchOrder:=xlByRows, _
             SearchDirection:=xlNext, _
