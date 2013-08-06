@@ -1,7 +1,7 @@
 Attribute VB_Name = "DrawingFinder"
 'Option Explicit
 'Must select Tools-Microsoft Runtime & Microsoft Word Object Library
-Const Build As String = 11
+Const Build As String = 12
 Const DebugMode = True
 
 ' Define globals
@@ -165,7 +165,20 @@ Sub BuildTree(SubLevelBOM As Folder)
     ChDir SubLevelBOM
     
     'Find the BOM, open it and extract the drawings/materials.
-    Item = Left(Item, InStr(Item, "-") - 1) 'Strip off issue and title.
+    
+    'Only strip off issue and title if - appears later on in string.
+    i = 4
+    Finished = False
+    Do
+        i = i + 1
+        If Mid(Item, i, 1) = "-" Then
+            Item = Left(Item, i - 1)
+            Finished = True
+        End If
+    Loop Until i = Len(Item) Or Finished
+    
+    'Put back / for search
+    'Item = Replace(Item, "-", "/")
     IndexFile = GlobalCurrentIndexFile
     Call CreateResultFile(Item, IndexFile)
     IndexFile = GlobalResultFile
@@ -222,7 +235,7 @@ Sub BuildTree(SubLevelBOM As Folder)
                 If DebugMode Then Debug.Print "BOM", Item, fs.GetFilename(NewDoc)
             Case DRG
                 Call FindInfo(Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
-                MakeDirectory (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
+                MakeFile (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
             Case Mat
                 'Create file if not OTH
                 MakeFile (Item & "." & WhatItIs)
@@ -280,7 +293,7 @@ Public Sub SetGlobals()
     End If
 
     ' Assign Prorgam related variables
-    GlobalFinderProgramFile = "DrawingFinder.xls"
+    GlobalFinderProgramFile = "DrawingTreeFinder.xls"
     GlobalCurrentIndexFile = GlobalProgramPath & "CurrentIndex.txt"
     GlobalOldIndexFile = GlobalProgramPath & "OldIndex.txt"
     GlobalBatchFile = GlobalProgramPath & "CreateIndex.bat"
@@ -304,7 +317,7 @@ Public Sub SetGlobals()
     End If
 
 End Sub
-Public Sub FindInfo(SearchString As String, ByRef Issue As String, ByRef Title As String)
+Public Sub FindInfo(ByVal SearchString As String, ByRef Issue As String, ByRef Title As String)
     'Look for the issue and title in the spreadsheet
     
     'Add / back in for search
@@ -1171,6 +1184,7 @@ Public Function IsFilewriteable(ByVal filePath As String) As Boolean
     IsFilewriteable = (Err.Number = 0)
 End Function
 Sub MakeDirectory(NewDir As String)
+    NewDir = Replace(NewDir, "/", "-")
     If DebugMode Then Debug.Print "MkDir:", CurDir, NewDir
     If Not DirExists(NewDir) Then MkDir NewDir
 End Sub
@@ -1297,5 +1311,7 @@ Sub CheckForArchivedFiles()
     Call CheckForPaths(Highlight, RecordPath)
     Call LogInformation("ArchivedFiles: Complete")
 End Sub
+
+
 
 
