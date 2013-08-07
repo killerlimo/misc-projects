@@ -27,7 +27,7 @@ Public GlobalTreeRoot As String
 Public GlobalLowestBOM As String
 Public GlobalWorkbook As Workbook
 Public GlobalDoc As Document
-
+Public GlobalMaxLevel As Integer
 
 Enum WhatIsIt
     BOM
@@ -99,6 +99,7 @@ Private Sub PlantTree()
     Dim FSfolder As Folder
     Dim SubFolder As Folder
     Dim TopLevelBOM As DrawingType
+    Dim TopLevel As Integer
     
     If DebugMode Then
         Debug.Print
@@ -124,6 +125,8 @@ Private Sub PlantTree()
     Correction = Cells(ActiveCell.row, 4).Value
     ECRnum = Cells(ActiveCell.row, 6).Value
     Title = Cells(ActiveCell.row, 2).Value
+    TopLevel = 0 'Level of the hierarchy
+    GlobalMaxLevel = 0
     
     Call LogInformation("PlantTree: TopLevelBOM:" & TopLevelBOM.Number)
     Call FindInfo(TopLevelBOM.Number, TopLevelBOM.Number, Issue:=TopLevelBOM.Issue, Title:=TopLevelBOM.Title)
@@ -135,7 +138,7 @@ Private Sub PlantTree()
         
         Set FSfolder = fs.GetFolder(GlobalTreeRoot)
         For Each SubFolder In FSfolder.SubFolders
-            Call BuildTree(SubFolder)
+            Call BuildTree(SubFolder, TopLevel)
         Next SubFolder
         
         If DebugMode Then
@@ -143,8 +146,8 @@ Private Sub PlantTree()
             Debug.Print "---Finish---"
         End If
         
-        'Shell "explorer /e, /root, " & GlobalTreeRoot, vbNormalFocus   'Show root folder
-        Shell "explorer /e, /root, " & GlobalLowestBOM, vbNormalFocus   'Show all levels
+        Shell "explorer /e, /root, " & GlobalTreeRoot, vbNormalFocus   'Show root folder
+        'Shell "explorer /e, /root, " & GlobalLowestBOM, vbNormalFocus   'Show all levels (does not work as other levels are hidden)
         
         'Release folder
         ChDir "c:\temp\"
@@ -156,7 +159,7 @@ Private Sub PlantTree()
     Application.ScreenUpdating = True
     
 End Sub
-Sub BuildTree(SubLevelBOM As Folder)
+Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
 
     Dim fs As New FileSystemObject
     Dim FSfolder As Folder
@@ -172,6 +175,8 @@ Sub BuildTree(SubLevelBOM As Folder)
     'Strip BOM name from path
     Item = fs.GetFilename(SubLevelBOM)
     ChDir SubLevelBOM
+    
+    Level = Level + 1 'Increase level of hierarchy
     
     'Find the BOM, open it and extract the drawings/materials.
     
@@ -245,10 +250,10 @@ Sub BuildTree(SubLevelBOM As Folder)
                     If DebugMode Then Debug.Print "BOM", Item, fs.GetFilename(NewDoc)
                 Case DRG
                     Call FindInfo(CurrentBOMDoc, Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
-                    MakeFile (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
+                    MakeFile (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title & "." & WhatItIs)
                 Case Mat
                     'Create file if not OTH
-                    MakeFile (Item)
+                    MakeFile (Item & "." & WhatItIs)
                 Case OTH
                     'Nothing to do
             End Select
@@ -273,8 +278,11 @@ Sub BuildTree(SubLevelBOM As Folder)
         'Recursively build the tree
         Set FSfolder = fs.GetFolder(SubLevelBOM)
         For Each SubFolder In FSfolder.SubFolders
-            Call BuildTree(SubFolder)
-            GlobalLowestBOM = SubFolder 'Keep track of lowest level BOM for best Win Explorer view.
+            Call BuildTree(SubFolder, Level)
+            If GlobalMaxLevel < Level Then
+                GlobalMaxLevel = Level      'Set newmax level
+                GlobalLowestBOM = SubFolder 'Keep track of lowest level BOM for best Win Explorer view.
+            End If
         Next SubFolder
     End If
 End Sub
