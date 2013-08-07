@@ -108,8 +108,13 @@ Private Sub PlantTree()
     Application.ScreenUpdating = False
     SetGlobals
 
-    MakeDirectory (GlobalTreeRoot)
+    
     ChDrive "c:"
+    
+    'Clear out old trees
+    'KillDirs (GlobalTreeRoot)
+    MakeDirectory (GlobalTreeRoot)
+    
     ChDir GlobalTreeRoot
     
     'Get top level BOM
@@ -408,12 +413,12 @@ Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef
                 Set aCell = .cell(aRow + 1, 2)
                 Refs(aRow).Number = OnlyAlphaNumericChars(aCell.Range)
                 If Refs(aRow).Number <> "" Then
+                    Occupied = Occupied + 1
                     Refs(Occupied).Number = Refs(aRow).Number   'Use Occupied index to filter out empty elements
                     Refs(Occupied).Is = IsDrawingType(Refs(aRow).Number)
-                    Occupied = Occupied + 1
                 End If
             Next aRow
-            Occupied = Occupied - 1
+            'Occupied = Occupied - 1
         End With
     End If
 End Sub
@@ -1340,7 +1345,29 @@ Sub CheckForArchivedFiles()
     Call CheckForPaths(Highlight, RecordPath)
     Call LogInformation("ArchivedFiles: Complete")
 End Sub
+Public Sub KillDirs(stDirName As String)
 
+'purpose: deletes all files and directories in the the directory
+'passed to it
+
+    Dim TheDir2Kill As String 'holds Dir string
+    Dim TheDir As String
+    
+    TheDir2Kill = Dir(stDirName & "\", vbDirectory)
+    On Error Resume Next
+    'iterate through the subdirectories
+    
+    Do While TheDir2Kill <> ""
+        If TheDir2Kill <> "." And TheDir2Kill <> ".." Then
+            TheDir = stDirName & "\" & TheDir2Kill
+            'kill all files in the directory
+            Kill TheDir & "\*.*"
+            'kill the directory itself
+            RmDir TheDir & "\"
+        End If
+        TheDir2Kill = Dir
+    Loop
+End Sub
 
 
 
