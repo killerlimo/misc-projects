@@ -263,7 +263,7 @@ Sub BuildTree(SubLevelBOM As Folder)
         'Detect Word/Excel and close document
         If InStr(UCase(CurrentBOMDoc), "XLS") Then
             If DebugMode Then Debug.Print "Closing ExcelDoc", fs.GetFilename(CurrentBOMDoc)
-            ThisWorkbook.Saved = True   'Prevent do you want to save message
+            'GlobalDoc.Saved = True   'Prevent do you want to save message
             DocApp.Workbooks.Close
             DocApp.Quit
             Set DocApp = Nothing
@@ -1118,7 +1118,7 @@ End Function
 Public Function DirExists(OrigFile As String)
     Dim fs
     Set fs = CreateObject("Scripting.FileSystemObject")
-    DirExists = fs.folderexists(OrigFile)
+    DirExists = fs.FolderExists(OrigFile)
 End Function
 Function FileExists(ByVal AFileName As String) As Boolean
     On Error GoTo Catch
@@ -1355,29 +1355,52 @@ Sub CheckForArchivedFiles()
     Call CheckForPaths(Highlight, RecordPath)
     Call LogInformation("ArchivedFiles: Complete")
 End Sub
-Public Sub KillDirs(stDirName As String)
+Public Sub KillDirs(ByVal strFolderPath As String)
+'Recursively delete files and folders
 
-'purpose: deletes all files and directories in the the directory
-'passed to it
-
-    Dim TheDir2Kill As String 'holds Dir string
-    Dim TheDir As String
-    
-    TheDir2Kill = Dir(stDirName & "\", vbDirectory)
-    On Error Resume Next
-    'iterate through the subdirectories
-    
-    Do While TheDir2Kill <> ""
-        If TheDir2Kill <> "." And TheDir2Kill <> ".." Then
-            TheDir = stDirName & TheDir2Kill
-            'kill all files in the directory
-            Kill TheDir & "\*.*"
-            'kill the directory itself
-            RmDir TheDir
-        End If
-        TheDir2Kill = Dir
-    Loop
+   Dim fsoSubFolders As Folders
+   Dim fsoFolder As Folder
+   Dim fsoSubFolder As Folder
+   
+   Dim strPaths()
+   Dim lngFolder As Long
+   Dim lngSubFolder As Long
+      
+   DoEvents
+   
+   Set m_fsoObject = New FileSystemObject
+   If Not m_fsoObject.FolderExists(strFolderPath) Then Exit Sub
+   
+   Set fsoFolder = m_fsoObject.GetFolder(strFolderPath)
+   
+   On Error Resume Next
+   
+   'Has sub-folders
+   If fsoFolder.SubFolders.Count > 0 Then
+        lngFolder = 1
+        ReDim strPaths(1 To fsoFolder.SubFolders.Count)
+        'Get each sub-folders path and add to an array
+        For Each fsoSubFolder In fsoFolder.SubFolders
+            strPaths(lngFolder) = fsoSubFolder.Path
+            lngFolder = lngFolder + 1
+        Next fsoSubFolder
+        
+        lngSubFolder = 1
+        'Recursively call the function for each sub-folder
+        Do While lngSubFolder < lngFolder
+           Call KillDirs(strPaths(lngSubFolder))
+           lngSubFolder = lngSubFolder + 1
+        Loop
+    End If
+   
+    'Delete files
+    If fsoFolder.Files.Count > 0 Then
+        Kill strFolderPath & "\*.*"
+    End If
+   
+    'No sub-folders or files
+    If fsoFolder.Files.Count = 0 And fsoFolder.SubFolders.Count = 0 Then
+        fsoFolder.Delete
+    End If
 End Sub
-
-
 
