@@ -143,8 +143,8 @@ Private Sub PlantTree()
             Debug.Print "---Finish---"
         End If
         
-        Shell "explorer /e, /root, " & GlobalTreeRoot, vbNormalFocus
-        '& ", /select, " & GlobalLowestBOM & "," & vbNormalFocus
+        'Shell "explorer /e, /root, " & GlobalTreeRoot, vbNormalFocus   'Show root folder
+        Shell "explorer /e, /root, " & GlobalLowestBOM, vbNormalFocus   'Show all levels
         
         'Release folder
         ChDir "c:\temp\"
@@ -199,18 +199,13 @@ Sub BuildTree(SubLevelBOM As Folder)
             If DebugMode Then Debug.Print "Opening ExcelDoc", fs.GetFilename(CurrentBOMDoc)
             Set DocApp = CreateObject("Excel.Application")
             Set GlobalWorkbook = DocApp.Workbooks.Open(CurrentBOMDoc, ReadOnly:=True)
-            'ReadOnly:=True
             DocApp.Visible = False
-            'Workbooks.Open(CurrentBOMDoc).Activate
-            'GlobalWorkbook.Activate
             WhatApp = Excel
         Else
             If DebugMode Then Debug.Print "Opening WordDoc", fs.GetFilename(CurrentBOMDoc)
             Set DocApp = CreateObject("word.Application")
             Set GlobalDoc = DocApp.Documents.Open(CurrentBOMDoc, ReadOnly:=True)
-            'ReadOnly:=True
             DocApp.Visible = False
-            'Documents.Open(CurrentBOMDoc).Activate
             WhatApp = Word
             
             'Accept all changes
@@ -253,7 +248,7 @@ Sub BuildTree(SubLevelBOM As Folder)
                     MakeFile (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
                 Case Mat
                     'Create file if not OTH
-                    MakeFile (Item & "." & WhatItIs)
+                    MakeFile (Item)
                 Case OTH
                     'Nothing to do
             End Select
@@ -263,7 +258,7 @@ Sub BuildTree(SubLevelBOM As Folder)
         'Detect Word/Excel and close document
         If InStr(UCase(CurrentBOMDoc), "XLS") Then
             If DebugMode Then Debug.Print "Closing ExcelDoc", fs.GetFilename(CurrentBOMDoc)
-            'GlobalDoc.Saved = True   'Prevent do you want to save message
+            GlobalWorkbook.Saved = True   'Prevent do you want to save message
             DocApp.Workbooks.Close
             DocApp.Quit
             Set DocApp = Nothing
