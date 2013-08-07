@@ -112,7 +112,7 @@ Private Sub PlantTree()
     ChDrive "c:"
     
     'Clear out old trees
-    'KillDirs (GlobalTreeRoot)
+    KillDirs (GlobalTreeRoot)
     MakeDirectory (GlobalTreeRoot)
     
     ChDir GlobalTreeRoot
@@ -125,6 +125,7 @@ Private Sub PlantTree()
     ECRnum = Cells(ActiveCell.row, 6).Value
     Title = Cells(ActiveCell.row, 2).Value
     
+    Call LogInformation("PlantTree: TopLevelBOM:" & TopLevelBOM.Number)
     Call FindInfo(TopLevelBOM.Number, TopLevelBOM.Number, Issue:=TopLevelBOM.Issue, Title:=TopLevelBOM.Title)
                     
     'Check that it is a BOM
@@ -166,6 +167,7 @@ Sub BuildTree(SubLevelBOM As Folder)
     Dim DrawingList() As DrawingType
     Dim MaxDrawings As Integer
     Dim WhatApp As AppType
+    Dim AllRev As Revision
     
     'Strip BOM name from path
     Item = fs.GetFilename(SubLevelBOM)
@@ -210,6 +212,13 @@ Sub BuildTree(SubLevelBOM As Folder)
             DocApp.Visible = False
             'Documents.Open(CurrentBOMDoc).Activate
             WhatApp = Word
+            
+            'Accept all changes
+            With GlobalDoc
+                For Each AllRev In .Revisions
+                    AllRev.Accept
+                Next AllRev
+            End With
         End If
         
         'Get a list of all the drawings/materials
@@ -260,6 +269,7 @@ Sub BuildTree(SubLevelBOM As Folder)
             Set DocApp = Nothing
         Else
             If DebugMode Then Debug.Print "Closing WordDoc", fs.GetFilename(CurrentBOMDoc)
+            GlobalDoc.Saved = True
             DocApp.Documents.Close
             DocApp.Quit wdDoNotSaveChanges
             Set DocApp = Nothing
@@ -359,7 +369,7 @@ Public Sub FindInfo(ByVal BOM As String, ByVal SearchString As String, ByRef Iss
         'Strip BOM name from path
         BOM = fs.GetFilename(BOM)
         MsgBox ("Check drawing " & SearchString & vbLf & "in BOM " & BOM)
-        Call LogInformation("FindInfo: Drawing number error" & SearchString & " in BOM " & BOM)
+        Call LogInformation("FindInfo: Drawing number error:" & SearchString & " in BOM:" & BOM)
     Else
         Issue = sh.Cells(Range(cl.Address).row, 3).Value
         Title = sh.Cells(Range(cl.Address).row, 2).Value
@@ -1359,11 +1369,11 @@ Public Sub KillDirs(stDirName As String)
     
     Do While TheDir2Kill <> ""
         If TheDir2Kill <> "." And TheDir2Kill <> ".." Then
-            TheDir = stDirName & "\" & TheDir2Kill
+            TheDir = stDirName & TheDir2Kill
             'kill all files in the directory
             Kill TheDir & "\*.*"
             'kill the directory itself
-            RmDir TheDir & "\"
+            RmDir TheDir
         End If
         TheDir2Kill = Dir
     Loop
