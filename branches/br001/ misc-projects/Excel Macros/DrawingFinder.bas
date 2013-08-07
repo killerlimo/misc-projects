@@ -1,7 +1,7 @@
 Attribute VB_Name = "DrawingFinder"
 'Option Explicit
 'Must select Tools-Microsoft Runtime & Microsoft Word Object Library
-Const Build As String = 12
+Const Build As String = 13
 Const DebugMode = True
 
 ' Define globals
@@ -98,13 +98,14 @@ Private Sub PlantTree()
     Dim fs As New FileSystemObject
     Dim FSfolder As Folder
     Dim SubFolder As Folder
-    Dim TopLevelBOM As String
+    Dim TopLevelBOM As DrawingType
     
     If DebugMode Then
         Debug.Print
         Debug.Print "---Start---"
     End If
        
+    Application.ScreenUpdating = False
     SetGlobals
 
     MakeDirectory (GlobalTreeRoot)
@@ -113,19 +114,18 @@ Private Sub PlantTree()
     
     'Get top level BOM
     ' Read cell contents
-    Drawing = Cells(ActiveCell.row, 1).Value
+    TopLevelBOM.Number = Cells(ActiveCell.row, 1).Value
     Issue = Cells(ActiveCell.row, 3).Value
     Correction = Cells(ActiveCell.row, 4).Value
     ECRnum = Cells(ActiveCell.row, 6).Value
     Title = Cells(ActiveCell.row, 2).Value
     
-    ' Find and replace '/' with '-' for file name.
-    TopLevelBOM = Replace(Drawing, "/", "-")
-    
+    Call FindInfo(TopLevelBOM.Number, TopLevelBOM.Number, Issue:=TopLevelBOM.Issue, Title:=TopLevelBOM.Title)
+                    
     'Check that it is a BOM
-    If IsDrawingType(TopLevelBOM) = BOM Then
+    If TopLevelBOM.Is = BOM Then
     
-        MakeDirectory (TopLevelBOM & "-" & Issue & " " & Title)
+        MakeDirectory (TopLevelBOM.Number & "-" & TopLevelBOM.Issue & " " & TopLevelBOM.Title)
         
         Set FSfolder = fs.GetFolder(GlobalTreeRoot)
         For Each SubFolder In FSfolder.SubFolders
@@ -146,6 +146,9 @@ Private Sub PlantTree()
     Else
         Call MsgBoxDelay("Drawing is not a BOM...", "DrawingTree", ShowDurationSecs)
     End If
+    
+    Application.ScreenUpdating = True
+    
 End Sub
 Sub BuildTree(SubLevelBOM As Folder)
 
@@ -176,95 +179,94 @@ Sub BuildTree(SubLevelBOM As Folder)
         End If
     Loop Until i = Len(Item) Or Finished
     
-    'Put back / for search
-    'Item = Replace(Item, "-", "/")
     IndexFile = GlobalCurrentIndexFile
     Call CreateResultFile(Item, IndexFile)
     IndexFile = GlobalResultFile
     CurrentBOMDoc = MsOfficeDoc(IndexFile)
     
-    'Detect Word/Excel and open document
-    If InStr(UCase(CurrentBOMDoc), "XLS") Then
-        If DebugMode Then Debug.Print "Opening ExcelDoc", fs.GetFilename(CurrentBOMDoc)
-        Set DocApp = CreateObject("Excel.Application")
-        Set GlobalWorkbook = DocApp.Workbooks.Open(CurrentBOMDoc, ReadOnly:=True)
-        'ReadOnly:=True
-        DocApp.Visible = False
-        'Workbooks.Open(CurrentBOMDoc).Activate
-        'GlobalWorkbook.Activate
-        WhatApp = Excel
+    If CurrentBOMDoc = "" Then
+        MsgBox ("BOM " & Item & " not found")
     Else
-        If DebugMode Then Debug.Print "Opening WordDoc", fs.GetFilename(CurrentBOMDoc)
-        Set DocApp = CreateObject("word.Application")
-        Set GlobalDoc = DocApp.Documents.Open(CurrentBOMDoc, ReadOnly:=True)
-        'ReadOnly:=True
-        DocApp.Visible = False
-        'Documents.Open(CurrentBOMDoc).Activate
-        WhatApp = Word
+        'Detect Word/Excel and open document
+        If InStr(UCase(CurrentBOMDoc), "XLS") Then
+            If DebugMode Then Debug.Print "Opening ExcelDoc", fs.GetFilename(CurrentBOMDoc)
+            Set DocApp = CreateObject("Excel.Application")
+            Set GlobalWorkbook = DocApp.Workbooks.Open(CurrentBOMDoc, ReadOnly:=True)
+            'ReadOnly:=True
+            DocApp.Visible = False
+            'Workbooks.Open(CurrentBOMDoc).Activate
+            'GlobalWorkbook.Activate
+            WhatApp = Excel
+        Else
+            If DebugMode Then Debug.Print "Opening WordDoc", fs.GetFilename(CurrentBOMDoc)
+            Set DocApp = CreateObject("word.Application")
+            Set GlobalDoc = DocApp.Documents.Open(CurrentBOMDoc, ReadOnly:=True)
+            'ReadOnly:=True
+            DocApp.Visible = False
+            'Documents.Open(CurrentBOMDoc).Activate
+            WhatApp = Word
+        End If
+        
+        'Get a list of all the drawings/materials
+        Call GetAllDrawings(WhatApp, Refs:=DrawingList, Occupied:=MaxDrawings)
+        ReDim Preserve DrawingList(MaxDrawings) As DrawingType
+        'Call QuickSort(DrawingList, LBound(DrawingList), UBound(DrawingList))
+        
+        For Index = 1 To UBound(DrawingList)
+            Item = DrawingList(Index).Number
+            WhatItIs = DrawingList(Index).Is
+            
+            Select Case WhatItIs
+                Case 0
+                    WhatItIs = "BOM"
+                Case 1
+                    WhatItIs = "Drawing"
+                Case 2
+                    WhatItIs = "Material"
+            End Select
+            
+            Select Case DrawingList(Index).Is
+                Case BOM
+                    Call FindInfo(CurrentBOMDoc, Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
+                    MakeDirectory (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
+                    IndexFile = GlobalCurrentIndexFile
+                    Call CreateResultFile(Item, IndexFile)
+                    IndexFile = GlobalResultFile
+                    NewDoc = MsOfficeDoc(IndexFile)
+                    If DebugMode Then Debug.Print "BOM", Item, fs.GetFilename(NewDoc)
+                Case DRG
+                    Call FindInfo(CurrentBOMDoc, Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
+                    MakeFile (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
+                Case Mat
+                    'Create file if not OTH
+                    MakeFile (Item & "." & WhatItIs)
+                Case OTH
+                    'Nothing to do
+            End Select
+            
+        Next Index
+        
+        'Detect Word/Excel and close document
+        If InStr(UCase(CurrentBOMDoc), "XLS") Then
+            If DebugMode Then Debug.Print "Closing ExcelDoc", fs.GetFilename(CurrentBOMDoc)
+            ThisWorkbook.Saved = True   'Prevent do you want to save message
+            DocApp.Workbooks.Close
+            DocApp.Quit
+            Set DocApp = Nothing
+        Else
+            If DebugMode Then Debug.Print "Closing WordDoc", fs.GetFilename(CurrentBOMDoc)
+            DocApp.Documents.Close
+            DocApp.Quit wdDoNotSaveChanges
+            Set DocApp = Nothing
+        End If
+        
+        'Recursively build the tree
+        Set FSfolder = fs.GetFolder(SubLevelBOM)
+        For Each SubFolder In FSfolder.SubFolders
+            Call BuildTree(SubFolder)
+            GlobalLowestBOM = SubFolder 'Keep track of lowest level BOM for best Win Explorer view.
+        Next SubFolder
     End If
-    
-    'Get a list of all the drawings/materials
-    Call GetAllDrawings(WhatApp, Refs:=DrawingList, Occupied:=MaxDrawings)
-    ReDim Preserve DrawingList(MaxDrawings) As DrawingType
-    Call QuickSort(DrawingList, LBound(DrawingList), UBound(DrawingList))
-    
-    For Index = 1 To UBound(DrawingList)
-        Item = DrawingList(Index).Number
-        WhatItIs = DrawingList(Index).Is
-        
-        Select Case WhatItIs
-            Case 0
-                WhatItIs = "BOM"
-            Case 1
-                WhatItIs = "Drawing"
-            Case 2
-                WhatItIs = "Material"
-        End Select
-        
-        Item = Replace(Item, "/", "-")
-        
-        Select Case DrawingList(Index).Is
-            Case BOM
-                Call FindInfo(Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
-                MakeDirectory (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
-                IndexFile = GlobalCurrentIndexFile
-                Call CreateResultFile(Item, IndexFile)
-                IndexFile = GlobalResultFile
-                NewDoc = MsOfficeDoc(IndexFile)
-                If DebugMode Then Debug.Print "BOM", Item, fs.GetFilename(NewDoc)
-            Case DRG
-                Call FindInfo(Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
-                MakeFile (Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title)
-            Case Mat
-                'Create file if not OTH
-                MakeFile (Item & "." & WhatItIs)
-            Case OTH
-                'Nothing to do
-        End Select
-        
-    Next Index
-    
-    'Detect Word/Excel and close document
-    If InStr(UCase(CurrentBOMDoc), "XLS") Then
-        If DebugMode Then Debug.Print "Closing ExcelDoc", fs.GetFilename(CurrentBOMDoc)
-        ThisWorkbook.Saved = True   'Prevent do you want to save message
-        DocApp.Workbooks.Close
-        DocApp.Quit
-        Set DocApp = Nothing
-    Else
-        If DebugMode Then Debug.Print "Closing WordDoc", fs.GetFilename(CurrentBOMDoc)
-        DocApp.Documents.Close
-        DocApp.Quit wdDoNotSaveChanges
-        Set DocApp = Nothing
-    End If
-    
-    'Recursively build the tree
-    Set FSfolder = fs.GetFolder(SubLevelBOM)
-    For Each SubFolder In FSfolder.SubFolders
-        Call BuildTree(SubFolder)
-        GlobalLowestBOM = SubFolder 'Keep track of lowest level BOM for best Win Explorer view.
-    Next SubFolder
-    
 End Sub
 Public Sub SetGlobals()
 ' Global variables for use throughout the program
@@ -316,14 +318,14 @@ Public Sub SetGlobals()
     End If
 
 End Sub
-Public Sub FindInfo(ByVal SearchString As String, ByRef Issue As String, ByRef Title As String)
+Public Sub FindInfo(ByVal BOM As String, ByVal SearchString As String, ByRef Issue As String, ByRef Title As String)
     'Look for the issue and title in the spreadsheet
     
-    'Add / back in for search
-    SearchString = Replace(SearchString, "-", "/")
+    Dim fs As New FileSystemObject
+    
     Set sh = ThisWorkbook.Worksheets(1)
-        'Find first instance on sheet
-        'c = Application.WorksheetFunction.Match(SearchString, ActiveWorkbook.Sheets(1).Range("A1", "A999"), 1)
+    'Find first instance on sheet
+    'c = Application.WorksheetFunction.Match(SearchString, ActiveWorkbook.Sheets(1).Range("A1", "A999"), 1)
         
     'Used to create a new view where all cells are shown to allow FIND to work properly.
     On Error Resume Next
@@ -331,7 +333,7 @@ Public Sub FindInfo(ByVal SearchString As String, ByRef Issue As String, ByRef T
     On Error GoTo 0
         
     With sh ' CodeName of filtered sheet
-        Application.Goto .Range("A1")
+        Application.GoTo .Range("A1")
         ThisWorkbook.CustomViews.Add "FindView", False, True
         .AutoFilterMode = False
         
@@ -349,6 +351,10 @@ Public Sub FindInfo(ByVal SearchString As String, ByRef Issue As String, ByRef T
     If cl Is Nothing Then
         Issue = ""
         Title = ""
+        'Strip BOM name from path
+        BOM = fs.GetFilename(BOM)
+        MsgBox ("Check drawing " & SearchString & vbLf & "in BOM " & BOM)
+        Call LogInformation("FindInfo: Drawing number error" & SearchString & " in BOM " & BOM)
     Else
         Issue = sh.Cells(Range(cl.Address).row, 3).Value
         Title = sh.Cells(Range(cl.Address).row, 2).Value
@@ -1200,7 +1206,10 @@ Public Function IsFilewriteable(ByVal filePath As String) As Boolean
     IsFilewriteable = (Err.Number = 0)
 End Function
 Sub MakeDirectory(NewDir As String)
+    
+    'Remove any /
     NewDir = Replace(NewDir, "/", "-")
+    
     If DebugMode Then Debug.Print "MkDir:", CurDir, NewDir
     If Not DirExists(NewDir) Then MkDir NewDir
 End Sub
@@ -1209,6 +1218,7 @@ Sub MakeFile(NewFile As String)
     
     'Remove any /
     NewFile = Replace(NewFile, "/", "-")
+    
     If DebugMode Then Debug.Print "MkFile:", NewFile
     If Not FileExists(NewFile) Then
         Set oFile = fso.CreateTextFile(NewFile)
