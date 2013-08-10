@@ -1,7 +1,7 @@
 Attribute VB_Name = "DrawingFinder"
 'Option Explicit
 'Must select Tools-Microsoft Runtime & Microsoft Word Object Library
-Const Build As String = 13
+Const Build As String = 14
 Const DebugMode = True
 
 ' Define globals
@@ -87,6 +87,56 @@ ByVal lngMilliseconds As Long) As Long
 Private Declare Function FindWindow Lib "user32" Alias "FindWindowA" ( _
 ByVal lpClassName As String, _
 ByVal lpWindowName As String) As Long
+Public Sub SetGlobals()
+' Global variables for use throughout the program
+    
+    Dim DataPath As String
+    Dim TransferPath As String
+    Dim Drive As String
+
+    ' Find out whether network drive is connected
+    If DirExists(NetDataPath) Then
+        DataPath = NetDataPath
+        GlobalProgramPath = NetProgramPath
+        TransferPath = NetTransferPath
+    Else
+        Drive = Switch(DirExists("e:\1_current_iss"), "e:", DirExists("f:\1_current_iss"), "f:", DirExists("g:\1_current_iss"), "g:", DirExists("c:\1_current_iss"), "c:\", True, "Not Found")
+        DataPath = Drive
+        GlobalProgramPath = Drive & LocalProgramPath
+        TransferPath = Drive & LocalTransferPath
+    End If
+    
+    ' Test for no suitable directory found
+    If Drive = "Not Found" Then
+        MsgBox ("Current Issue" & vbLf & "Folder not found")
+        End
+    End If
+
+    ' Assign Prorgam related variables
+    GlobalFinderProgramFile = "DrawingFinder.xls"
+    GlobalCurrentIndexFile = GlobalProgramPath & "CurrentIndex.txt"
+    GlobalOldIndexFile = GlobalProgramPath & "OldIndex.txt"
+    GlobalBatchFile = GlobalProgramPath & "CreateIndex.bat"
+    GlobalTutorialFile = GlobalProgramPath & "DrawingFinderTutorial.pdf"
+    
+    ' Assign Data related variables
+    GlobalCurrentIssueFolder = DataPath & "1_current_iss"
+    GlobalOldIssueFolder = DataPath & "1_old_iss"
+    
+    GlobalTransferFolder = TransferPath & "1_files for filing"
+    GlobalResultFile = LocalLogPath & "DrawingFinderResult.txt"
+    GlobalTransferIndexFile = LocalLogPath & "DrawingFinderTransferIndex.txt"
+    GlobalTreeRoot = LocalLogPath & TreeRoot
+    
+    ' Assign Log file path
+    ' Select local log file if user doesn't have write access to network log file
+    If Not IsFilewriteable(GlobalProgramPath) Then
+        GlobalLogFile = LocalLogPath & "DrawingFinderLogFile.txt"
+    Else
+        GlobalLogFile = GlobalProgramPath & "DrawingFinderLogFile.txt"
+    End If
+
+End Sub
 Private Sub PlantTree()
 'Get all the drawings/materials from the the current open drawing.
 'Use this list to form a linked list of all the sub level BOMs.
@@ -108,7 +158,6 @@ Private Sub PlantTree()
        
     Application.ScreenUpdating = False
     SetGlobals
-
     
     ChDrive "c:"
     
@@ -147,7 +196,6 @@ Private Sub PlantTree()
         End If
         
         Shell "explorer /e, /root, " & GlobalTreeRoot, vbNormalFocus   'Show root folder
-        'Shell "explorer /e, /root, " & GlobalLowestBOM, vbNormalFocus   'Show all levels (does not work as other levels are hidden)
         
         'Release folder
         ChDir "c:\temp\"
@@ -285,56 +333,6 @@ Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
             End If
         Next SubFolder
     End If
-End Sub
-Public Sub SetGlobals()
-' Global variables for use throughout the program
-    
-    Dim DataPath As String
-    Dim TransferPath As String
-    Dim Drive As String
-
-    ' Find out whether network drive is connected
-    If DirExists(NetDataPath) Then
-        DataPath = NetDataPath
-        GlobalProgramPath = NetProgramPath
-        TransferPath = NetTransferPath
-    Else
-        Drive = Switch(DirExists("e:\1_current_iss"), "e:", DirExists("f:\1_current_iss"), "f:", DirExists("g:\1_current_iss"), "g:", DirExists("c:\1_current_iss"), "c:\", True, "Not Found")
-        DataPath = Drive
-        GlobalProgramPath = Drive & LocalProgramPath
-        TransferPath = Drive & LocalTransferPath
-    End If
-    
-    ' Test for no suitable directory found
-    If Drive = "Not Found" Then
-        MsgBox ("Current Issue" & vbLf & "Folder not found")
-        End
-    End If
-
-    ' Assign Prorgam related variables
-    GlobalFinderProgramFile = "DrawingTreeFinder.xls"
-    GlobalCurrentIndexFile = GlobalProgramPath & "CurrentIndex.txt"
-    GlobalOldIndexFile = GlobalProgramPath & "OldIndex.txt"
-    GlobalBatchFile = GlobalProgramPath & "CreateIndex.bat"
-    GlobalTutorialFile = GlobalProgramPath & "DrawingFinderTutorial.pdf"
-    
-    ' Assign Data related variables
-    GlobalCurrentIssueFolder = DataPath & "1_current_iss"
-    GlobalOldIssueFolder = DataPath & "1_old_iss"
-    
-    GlobalTransferFolder = TransferPath & "1_files for filing"
-    GlobalResultFile = LocalLogPath & "DrawingFinderResult.txt"
-    GlobalTransferIndexFile = LocalLogPath & "DrawingFinderTransferIndex.txt"
-    GlobalTreeRoot = LocalLogPath & TreeRoot
-    
-    ' Assign Log file path
-    ' Select local log file if user doesn't have write access to network log file
-    If Not IsFilewriteable(GlobalProgramPath) Then
-        GlobalLogFile = LocalLogPath & "DrawingFinderLogFile.txt"
-    Else
-        GlobalLogFile = GlobalProgramPath & "DrawingFinderLogFile.txt"
-    End If
-
 End Sub
 Public Sub FindInfo(ByVal BOM As String, ByVal SearchString As String, ByRef Issue As String, ByRef Title As String)
     'Look for the issue and title in the spreadsheet
