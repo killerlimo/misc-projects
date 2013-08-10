@@ -146,10 +146,9 @@ Private Sub PlantTree()
     Dim WhatItIs As String
     Dim Index As Integer
     Dim fs As New FileSystemObject
-    Dim FSfolder As Folder
-    Dim SubFolder As Folder
     Dim TopLevelBOM As DrawingType
     Dim TopLevel As Integer
+    Dim TopLevelFolder As String
     
     If DebugMode Then
         Debug.Print
@@ -160,11 +159,7 @@ Private Sub PlantTree()
     SetGlobals
     
     ChDrive "c:"
-    
-    'Clear out old trees
-    KillDirs (GlobalTreeRoot)
     MakeDirectory (GlobalTreeRoot)
-    
     ChDir GlobalTreeRoot
     
     'Get top level BOM
@@ -183,12 +178,13 @@ Private Sub PlantTree()
     'Check that it is a BOM
     If TopLevelBOM.Is = BOM Then
     
-        MakeDirectory (TopLevelBOM.Number & "-" & TopLevelBOM.Issue & " " & TopLevelBOM.Title)
+        TopLevelFolder = TopLevelBOM.Number & "-" & TopLevelBOM.Issue & " " & TopLevelBOM.Title
+        TopLevelFolder = Replace(TopLevelFolder, "/", "-")
+        'Clear out old tree
+        KillDirs (TopLevelFolder)
+        MakeDirectory (TopLevelFolder)
         
-        Set FSfolder = fs.GetFolder(GlobalTreeRoot)
-        For Each SubFolder In FSfolder.SubFolders
-            Call BuildTree(SubFolder, TopLevel)
-        Next SubFolder
+        Call BuildTree(fs.GetFolder(TopLevelFolder), TopLevel)
         
         If DebugMode Then
             Debug.Print
