@@ -1,8 +1,11 @@
 Attribute VB_Name = "DrawingFinder"
 'Option Explicit
-'Must select Tools-Microsoft Runtime & Microsoft Word Object Library
+'Must select Tools-Microsoft Runtime
+'Use late binding objects to allow for different versions of Excel.
+
 Const Build As String = 14
 Const DebugMode = True
+Const ForceLocal = True
 
 ' Define globals
 Public GlobalNum As String
@@ -26,7 +29,7 @@ Public OldIndexArray() As String
 Public GlobalTreeRoot As String
 Public GlobalLowestBOM As String
 Public GlobalWorkbook As Workbook
-Public GlobalDoc As Document
+Public GlobalDoc As Object
 Public GlobalMaxLevel As Integer
 
 Enum WhatIsIt
@@ -95,7 +98,7 @@ Public Sub SetGlobals()
     Dim Drive As String
 
     ' Find out whether network drive is connected
-    If DirExists(NetDataPath) Then
+    If Not ForceLocal And DirExists(NetDataPath) Then
         DataPath = NetDataPath
         GlobalProgramPath = NetProgramPath
         TransferPath = NetTransferPath
@@ -194,7 +197,7 @@ Private Sub PlantTree()
         Shell "explorer /e, /root, " & GlobalTreeRoot, vbNormalFocus   'Show root folder
         
         'Release folder
-        ChDir "c:\temp\"
+        ChDir LocalLogPath
     '   Stop
     Else
         Call MsgBoxDelay("Drawing is not a BOM...", "DrawingTree", ShowDurationSecs)
@@ -214,7 +217,7 @@ Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
     Dim DrawingList() As DrawingType
     Dim MaxDrawings As Integer
     Dim WhatApp As AppType
-    Dim AllRev As Revision
+    Dim AllRev As Object
     
     'Strip BOM name from path
     Item = fs.GetFilename(SubLevelBOM)
@@ -375,8 +378,8 @@ End Sub
 Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef Occupied As Integer)
 'Compile an array of all the drawing/material numbers
 
-    Dim aTable As Table
-    Dim aCell As cell
+    Dim aTable As Object
+    Dim aCell As Object
     Dim aRow As Integer
     Dim DrawingRowStart As Integer
     Dim DrawingColStart As Integer
@@ -924,7 +927,7 @@ Sub Update(Optional UpdateMode As String = "Normal")
                 Call MsgBoxDelay("...Indexes Created", "Update", ShowDurationSecs)
                                 
                 ' Only save workbook if the network drive exists
-                If DirExists(NetProgramPath) Then
+                If Not ForceLocal And DirExists(NetProgramPath) Then
                     ImportSAP
                     ' Save & set to read-only
                     CheckForArchivedFiles
