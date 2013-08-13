@@ -5,7 +5,7 @@ Attribute VB_Name = "DrawingFinder"
 
 Const Build As String = 14
 Const DebugMode = True
-Const ForceLocal = True
+Const ForceLocal = False
 
 ' Define globals
 Public GlobalNum As String
@@ -158,6 +158,8 @@ Private Sub PlantTree()
         Debug.Print "---Start---"
     End If
        
+    Call MsgBoxDelay("Building BOM Tree...", "Please Wait", ShowDurationSecs)
+    
     Application.ScreenUpdating = False
     SetGlobals
     
@@ -763,9 +765,12 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
     Dim nDirs As Long, nFiles As Long
     Dim lSize As Currency
     
-        ShowItem = False
-        MinLines = 0
-        
+    ShowItem = False
+    MinLines = 0
+    
+    'Report if running on local data
+    If ForceLocal Then Call MsgBoxDelay("*** LOCAL ***", "Database Location", ShowDurationSecs)
+    
     ' Read cell contents
     Drawing = Cells(ActiveCell.row, 1).Value
     Issue = Cells(ActiveCell.row, 3).Value
