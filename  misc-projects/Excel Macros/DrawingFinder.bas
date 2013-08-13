@@ -220,6 +220,7 @@ Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
     Dim MaxDrawings As Integer
     Dim WhatApp As AppType
     Dim AllRev As Object
+    Dim WhatItIs As String
     
     'Strip BOM name from path
     Item = fs.GetFilename(SubLevelBOM)
@@ -299,10 +300,11 @@ Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
                     If DebugMode Then Debug.Print "BOM", Item, fs.GetFilename(NewDoc)
                 Case DRG
                     Call FindInfo(CurrentBOMDoc, Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
-                    MakeFile (Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44) & "." & WhatItIs)
+                    Call MakeFile(Item, Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44) & ".bat", WhatItIs)
                 Case Mat
                     'Create file if not OTH
-                    MakeFile (Item & "." & WhatItIs)
+                    'MakeFile (Item & "." & WhatItIs)
+                    Call MakeFile(Item, Item, WhatItIs)
                 Case OTH
                     'Nothing to do
             End Select
@@ -1233,16 +1235,17 @@ Sub MakeDirectory(NewDir As String)
     If DebugMode Then Debug.Print "MkDir:", CurDir, NewDir
     If Not DirExists(NewDir) Then MkDir NewDir
 End Sub
-Sub MakeFile(NewFile As String)
+Sub MakeFile(Item As String, NewFile As String, WhatItIs As String)
     Set fso = CreateObject("Scripting.FileSystemObject")
     
     'Remove any /
     NewFile = Replace(NewFile, "/", "-")
+    Item = Replace(Item, "/", "-")
     
     If DebugMode Then Debug.Print "MkFile:", NewFile
     If Not FileExists(NewFile) Then
-        Set oFile = fso.CreateTextFile(NewFile)
-        oFile.WriteLine NewFile
+        Set oFile = fso.CreateTextFile(NewFile & ".bat")
+        oFile.WriteLine "DrawingOpen.bat " & Item & " " & WhatItIs
         oFile.Close
     End If
 End Sub
