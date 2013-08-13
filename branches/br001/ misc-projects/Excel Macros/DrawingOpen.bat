@@ -1,6 +1,14 @@
 @echo off
-echo Drawing: %1%
-rem find /i "%1%" "c:\Drgstate\PartsCurrentIndex.txt" >  Result.txt
+echo Number: %1%
+echo Type: %2%
+
+if "%2%" == "material" (
+	echo It is a Material
+	rem find /i "%1%" "c:\Drgstate\PartsCurrentIndex.txt" >  Result.txt
+) else (
+	echo It is a Drawing
+)
+
 echo Results
 for /F "tokens=*"  %%i IN ('findstr /v "INDEX" Result.txt') DO (
 	%%i
