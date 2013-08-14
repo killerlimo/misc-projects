@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 14
+Const Build As String = 15
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -31,6 +31,7 @@ Public GlobalLowestBOM As String
 Public GlobalWorkbook As Workbook
 Public GlobalDoc As Object
 Public GlobalMaxLevel As Integer
+Public GlobalFileOpener As String
 
 Enum WhatIsIt
     BOM
@@ -121,6 +122,7 @@ Public Sub SetGlobals()
     GlobalOldIndexFile = GlobalProgramPath & "OldIndex.txt"
     GlobalBatchFile = GlobalProgramPath & "CreateIndex.bat"
     GlobalTutorialFile = GlobalProgramPath & "DrawingFinderTutorial.pdf"
+	GlobalFileOpener = GlobalProgramPath & "FileOpener.bat"
     
     ' Assign Data related variables
     GlobalCurrentIssueFolder = DataPath & "1_current_iss"
@@ -1245,7 +1247,7 @@ Sub MakeFile(Item As String, NewFile As String, WhatItIs As String)
     If DebugMode Then Debug.Print "MkFile:", NewFile
     If Not FileExists(NewFile) Then
         Set oFile = fso.CreateTextFile(NewFile & ".bat")
-        oFile.WriteLine "DrawingOpen.bat " & Item & " " & WhatItIs
+        oFile.WriteLine GlobalFileOpener & " " & Item & " " & WhatItIs
         oFile.Close
     End If
 End Sub
