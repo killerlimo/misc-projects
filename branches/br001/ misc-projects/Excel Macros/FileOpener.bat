@@ -24,12 +24,13 @@ if "%2%"=="Material" (
 )
 
 REM Search for a match in the index
-set "Redirect=>"
-set FindFiles="%IndexPath% %Redirect% %ResultPath%"
-echo Index:%IndexPath%%
-echo Result:%ResultPath%
-echo Find:%FindFiles%
+set SearchStr="%1%"
+find /i %SearchStr% %IndexPath%>%ResultPath%
 
-find /i %1% %FindFiles%
+REM Stop at first line containing a path and open the file
+for /F "tokens=*"  %%i IN ('findstr /v "INDEX" %ResultPath%') DO (
+	"%%i"
+	goto :Finish
+)
 
-
+:Finish
