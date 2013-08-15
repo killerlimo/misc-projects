@@ -193,7 +193,7 @@ Private Sub PlantTree()
         'Make file version of BOM to allow it to be opened direct from BOM tree.
         ChDir (TopLevelFolder)
         With TopLevelBOM
-            Call MakeFile(.Number, Left(.Number & "-" & .Issue & " " & .Title, 44) & ".bat", "BOM")
+            Call MakeFile(.Number, Left("~" & .Number & "-" & .Issue & " " & .Title, 44), "BOM")
             ChDir ".."
         End With
 
@@ -302,9 +302,9 @@ Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
                     Call FindInfo(CurrentBOMDoc, Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
                     MakeDirectory (Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44))
                     'Make file version of BOM to allow it to be opened direct from BOM tree.
-                    ChDir (Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44))
-                    Call MakeFile(Item, Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44) & ".bat", WhatItIs)
-                    ChDir ".."
+                    'ChDir (Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44)) 'This does not always work correctly
+                    Call MakeFile(Item, Left("~" & Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44), WhatItIs)
+                    'ChDir ".."
                     
                     IndexFile = GlobalCurrentIndexFile
                     Call CreateResultFile(Item, IndexFile)
@@ -313,7 +313,7 @@ Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
                     If DebugMode Then Debug.Print "BOM", Item, fs.GetFilename(NewDoc)
                 Case DRG
                     Call FindInfo(CurrentBOMDoc, Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
-                    Call MakeFile(Item, Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44) & ".bat", WhatItIs)
+                    Call MakeFile(Item, Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44), WhatItIs)
                 Case Mat
                     'Create file if not OTH
                     'MakeFile (Item & "." & WhatItIs)
