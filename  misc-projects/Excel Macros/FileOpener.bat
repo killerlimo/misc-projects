@@ -2,7 +2,7 @@
 REM DOS Batch File to open files created by BOM Tree in DrawingFinder
 Set Version=1
 
-echo FileOpener Version %Version%
+echo.FileOpener Version %Version%
 
 Setlocal EnableDelayedExpansion
 
@@ -27,6 +27,10 @@ if "%2%"=="Material" (
 	set IndexPath=%NetDataPath%CurrentIndex.txt
 	echo Drawing detected
 )
+echo.
+echo MENU
+echo ----
+echo.
 
 REM Search for a match in the index
 set SearchStr="%1%"
@@ -40,6 +44,8 @@ for /F "tokens=*"  %%i IN ('findstr /v "INDEX" %ResultPath%') DO (
 	set /a line+=1
 )
 echo %line% - Exit
+echo.
+
 set /p Selection=Type number and then press ENTER:
 rem echo %Selection%
 if %Selection%==!Line! (
@@ -47,6 +53,5 @@ if %Selection%==!Line! (
 )
 set Link="!FileList[%Selection%]!"
 start "" %Link%
-rem start "" "%%i"
 	
 :Finish
