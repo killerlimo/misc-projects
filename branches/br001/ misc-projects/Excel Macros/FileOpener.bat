@@ -33,9 +33,20 @@ set SearchStr="%1%"
 find /i %SearchStr% %IndexPath%>%ResultPath%
 
 REM Stop at first line containing a path and open the file
+set /a line=1
 for /F "tokens=*"  %%i IN ('findstr /v "INDEX" %ResultPath%') DO (
-	start "" "%%i"
+	echo !line! - %%i
+	set FileList[!line!]=%%i
+	set /a line+=1
+)
+echo %line% - Exit
+set /p Selection=Type number and then press ENTER:
+rem echo %Selection%
+if %Selection%==!Line! (
 	goto :Finish
 )
-
+set Link="!FileList[%Selection%]!"
+start "" %Link%
+rem start "" "%%i"
+	
 :Finish
