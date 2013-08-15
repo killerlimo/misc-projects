@@ -32,7 +32,7 @@ find /i %SearchStr% %IndexPath%>%ResultPath%
 
 REM Stop at first line containing a path and open the file
 for /F "tokens=*"  %%i IN ('findstr /v "INDEX" %ResultPath%') DO (
-	"%%i"
+	start "" "%%i"
 	goto :Finish
 )
 
