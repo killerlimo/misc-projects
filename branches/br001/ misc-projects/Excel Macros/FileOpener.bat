@@ -1,3 +1,6 @@
+REM DOS Batch File to open files created by BOM Tree in DrawingFinder
+REM Version 1
+
 @echo off
 
 Setlocal EnableDelayedExpansion
