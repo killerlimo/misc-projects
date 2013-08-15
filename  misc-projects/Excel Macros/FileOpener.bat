@@ -1,7 +1,8 @@
 @echo off
 REM DOS Batch File to open files created by BOM Tree in DrawingFinder
-Set Version=1
-
+Set Version=2
+echo.
+echo.
 echo.FileOpener Version %Version%
 
 Setlocal EnableDelayedExpansion
@@ -39,10 +40,22 @@ find /i %SearchStr% %IndexPath%>%ResultPath%
 REM Stop at first line containing a path and open the file
 set /a line=1
 for /F "tokens=*"  %%i IN ('findstr /v "INDEX" %ResultPath%') DO (
-	echo !line! - %%i
+	rem echo !line! - %%i
 	set FileList[!line!]=%%i
 	set /a line+=1
 )
+
+set /a i=1
+
+:loop
+	For %%A in ("!FileList[%i%]!") do (
+		Set Folder=%%~dpA
+		Set Name=%%~nxA
+	)
+	echo %i% - !Name!
+	set /a i+=1
+if not %i%==%line% goto :loop
+
 echo %line% - Exit
 echo.
 
@@ -51,7 +64,9 @@ rem echo %Selection%
 if %Selection%==!Line! (
 	goto :Finish
 )
-set Link="!FileList[%Selection%]!"
-start "" %Link%
-	
+set "Link=!FileList[%Selection%]!"
+
+start "" "%Link%"
+
 :Finish
+
