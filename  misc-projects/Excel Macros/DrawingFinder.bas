@@ -122,7 +122,7 @@ Public Sub SetGlobals()
     GlobalOldIndexFile = GlobalProgramPath & "OldIndex.txt"
     GlobalBatchFile = GlobalProgramPath & "CreateIndex.bat"
     GlobalTutorialFile = GlobalProgramPath & "DrawingFinderTutorial.pdf"
-	GlobalFileOpener = GlobalProgramPath & "FileOpener.bat"
+        GlobalFileOpener = GlobalProgramPath & "FileOpener.bat"
     
     ' Assign Data related variables
     GlobalCurrentIssueFolder = DataPath & "1_current_iss"
@@ -190,7 +190,13 @@ Private Sub PlantTree()
         'Clear out old tree
         KillDirs (TopLevelFolder)
         MakeDirectory (TopLevelFolder)
-        
+        'Make file version of BOM to allow it to be opened direct from BOM tree.
+        ChDir (TopLevelFolder)
+        With TopLevelBOM
+            Call MakeFile(.Number, Left(.Number & "-" & .Issue & " " & .Title, 44) & ".bat", "BOM")
+            ChDir ".."
+        End With
+
         Call BuildTree(fs.GetFolder(TopLevelFolder), TopLevel)
         
         If DebugMode Then
@@ -295,6 +301,11 @@ Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
                 Case BOM
                     Call FindInfo(CurrentBOMDoc, Item, Issue:=DrawingList(Index).Issue, Title:=DrawingList(Index).Title)
                     MakeDirectory (Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44))
+                    'Make file version of BOM to allow it to be opened direct from BOM tree.
+                    ChDir (Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44))
+                    Call MakeFile(Item, Left(Item & "-" & DrawingList(Index).Issue & " " & DrawingList(Index).Title, 44) & ".bat", WhatItIs)
+                    ChDir ".."
+                    
                     IndexFile = GlobalCurrentIndexFile
                     Call CreateResultFile(Item, IndexFile)
                     IndexFile = GlobalResultFile
