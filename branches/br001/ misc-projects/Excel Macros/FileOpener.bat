@@ -45,8 +45,14 @@ for /F "tokens=*"  %%i IN ('findstr /v "INDEX" %ResultPath%') DO (
 	set /a line+=1
 )
 
-set /a i=1
+REM Check for file not found
+if %line%==1 (
+	echo File Not Found!
+	pause
+	goto :Finished
+)
 
+set /a i=1
 :loop
 	For %%A in ("!FileList[%i%]!") do (
 		Set Folder=%%~dpA
