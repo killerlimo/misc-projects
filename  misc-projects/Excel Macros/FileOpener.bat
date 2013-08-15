@@ -1,29 +1,31 @@
-REM DOS Batch File to open files created by BOM Tree in DrawingFinder
-REM Version 1
-
 @echo off
+REM DOS Batch File to open files created by BOM Tree in DrawingFinder
+Set Version=1
+
+echo FileOpener Version %Version%
 
 Setlocal EnableDelayedExpansion
 
 REM Determine whether network is present
 
 set NetDataPath=\\atle.bombardier.com\data\uk\pl\dos\Drgstate\
+set LocalDataPath=c:\Drgstate\
 set ResultPath=c:\windows\temp\FileOpenResult.txt
 
 if not exist %NetDataPath% (
-	set NetDataPath=c:\Drgstate\
-	echo No network
+	set NetDataPath=%LocalDataPath%
+	echo Local working
 ) else (
-	echo Network
+	echo Network working
 )
 
 REM Determine whether material or drawing
 if "%2%"=="Material" (
 	set IndexPath=%NetDataPath%PartsCurrentIndex.txt
-	echo Material
+	echo Material detected
 ) else (
 	set IndexPath=%NetDataPath%CurrentIndex.txt
-	echo Drawing
+	echo Drawing detected
 )
 
 REM Search for a match in the index
