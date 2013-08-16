@@ -29,9 +29,6 @@ if "%2%"=="Material" (
 	echo Drawing detected
 )
 echo.
-echo MENU
-echo ----
-echo.
 
 REM Search for a match in the index
 set SearchStr="%1%"
@@ -52,6 +49,11 @@ if %line%==1 (
 	goto :Finished
 )
 
+:Menu
+echo MENU
+echo ----
+echo.
+
 set /a i=1
 :loop
 	For %%A in ("!FileList[%i%]!") do (
@@ -66,7 +68,17 @@ echo %line% - Exit
 echo.
 
 set /p Selection=Type number and then press ENTER:
-rem echo %Selection%
+
+if %Selection% gtr !Line! (
+	echo.
+	goto :Menu
+)
+
+if %Selection% lss 1 (
+	echo.
+	goto :Menu
+)
+
 if %Selection%==!Line! (
 	goto :Finish
 )
