@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 15
+Const Build As String = 16
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -865,16 +865,21 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
         
         ResultFilePath = ResultArray(Choice)
 
-        If Action = OpenInApp Then
-            Call LogInformation("ShowItem: File path: " & ResultFilePath)
-            ' Create full path to file
-            ResultFilePath = "file:///" & ResultFilePath
-            ' Open file in applicaion
-            ActiveWorkbook.FollowHyperlink ResultFilePath
+        If Not FileExists(ResultFilePath) Then
+            MsgBox (ResultFilePath & vbLf & "File not found")
+            Call LogInformation("ShowItem: File not found: " & ResultFilePath)
         Else
-            Call LogInformation("ShowItem: File path: " & ResultFilePath)
-            Shell "explorer /e, /select," & ResultFilePath, vbNormalFocus    ' Use /e to show the folders pane. Opening showing the folders over the network is very slow!
-            'Shell "explorer /select," & ResultFilePath, vbNormalFocus
+            If Action = OpenInApp Then
+                Call LogInformation("ERROR - ShowItem: File path: " & ResultFilePath)
+                ' Create full path to file
+                ResultFilePath = "file:///" & ResultFilePath
+                ' Open file in applicaion
+                ActiveWorkbook.FollowHyperlink ResultFilePath
+            Else
+                Call LogInformation("ShowItem: File path: " & ResultFilePath)
+                Shell "explorer /e, /select," & ResultFilePath, vbNormalFocus    ' Use /e to show the folders pane. Opening showing the folders over the network is very slow!
+                'Shell "explorer /select," & ResultFilePath, vbNormalFocus
+            End If
         End If
     End If
 End Function
