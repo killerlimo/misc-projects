@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 16
+Const Build As String = 17
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -867,10 +867,10 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
 
         If Not FileExists(ResultFilePath) Then
             MsgBox (ResultFilePath & vbLf & "File not found")
-            Call LogInformation("ShowItem: File not found: " & ResultFilePath)
+            Call LogInformation("ERROR - ShowItem: File not found: " & ResultFilePath)
         Else
             If Action = OpenInApp Then
-                Call LogInformation("ERROR - ShowItem: File path: " & ResultFilePath)
+                Call LogInformation("ShowItem: File path: " & ResultFilePath)
                 ' Create full path to file
                 ResultFilePath = "file:///" & ResultFilePath
                 ' Open file in applicaion
