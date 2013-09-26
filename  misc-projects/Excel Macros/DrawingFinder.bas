@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 17
+Const Build As String = 18
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -1327,9 +1327,9 @@ Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
         Drawing = "\" & Drawing
         ECR = "\" & ECR
         
-        ' Deal with Drawings
+        ' Deal with Drawings, use vbTextCompare to be case insensitive
         If Drawing <> "\" Then
-            Results = Filter(CurrentIndexArray, Drawing)
+            Results = Filter(CurrentIndexArray, Drawing, True, vbTextCompare)
             If UBound(Results) >= 0 Then
                 If RecordPath Then
                     For j = LBound(Results) To UBound(Results)
@@ -1337,7 +1337,7 @@ Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
                     Next j
                 End If
             Else:
-                Results = Filter(OldIndexArray, Drawing)
+                Results = Filter(OldIndexArray, Drawing, True, vbTextCompare)
                 If UBound(Results) >= 0 Then
                     If RecordPath Then
                         
