@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 18
+Const Build As String = 19
 Const DebugMode = True
 Const ForceLocal = False
 
