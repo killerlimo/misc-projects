@@ -97,6 +97,8 @@ Public Sub SetGlobals()
     Dim DataPath As String
     Dim TransferPath As String
     Dim Drive As String
+    
+    On Error GoTo ErrorHandler
 
     ' Find out whether network drive is connected
     If Not ForceLocal And DirExists(NetDataPath) Then
@@ -141,6 +143,12 @@ Public Sub SetGlobals()
         GlobalLogFile = GlobalProgramPath & "DrawingFinderLogFile.txt"
     End If
 
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: SetGlobal Error number=" & CStr(Err))
+    End
 End Sub
 Private Sub PlantTree()
 'Get all the drawings/materials from the the current open drawing.
@@ -154,6 +162,8 @@ Private Sub PlantTree()
     Dim TopLevelBOM As DrawingType
     Dim TopLevel As Integer
     Dim TopLevelFolder As String
+    
+    On Error GoTo ErrorHandler
     
     If DebugMode Then
         Debug.Print
@@ -214,7 +224,12 @@ Private Sub PlantTree()
     End If
     
     Application.ScreenUpdating = True
-    
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: PlantTree Error number=" & CStr(Err))
+    End
 End Sub
 Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
 
@@ -229,6 +244,8 @@ Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
     Dim WhatApp As AppType
     Dim AllRev As Object
     Dim WhatItIs As String
+    
+    On Error GoTo ErrorHandler
     
     'Strip BOM name from path
     Item = fs.GetFilename(SubLevelBOM)
@@ -349,11 +366,19 @@ Sub BuildTree(ByVal SubLevelBOM As Folder, ByRef Level As Integer)
             End If
         Next SubFolder
     End If
+    Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: BuildTree Error number=" & CStr(Err))
+    End
 End Sub
 Public Sub FindInfo(ByVal BOM As String, ByVal SearchString As String, ByRef Issue As String, ByRef Title As String)
     'Look for the issue and title in the spreadsheet
     
     Dim fs As New FileSystemObject
+    
+    On Error GoTo ErrorHandler
     
     Set sh = ThisWorkbook.Worksheets(1)
     'Find first instance on sheet
@@ -391,6 +416,12 @@ Public Sub FindInfo(ByVal BOM As String, ByVal SearchString As String, ByRef Iss
         Issue = sh.Cells(Range(cl.Address).row, 3).Value
         Title = sh.Cells(Range(cl.Address).row, 2).Value
     End If
+    Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: FindInfo Error number=" & CStr(Err))
+    End
 End Sub
 Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef Occupied As Integer)
 'Compile an array of all the drawing/material numbers
@@ -403,6 +434,8 @@ Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef
     Dim ActiveRow As Integer
     Dim RefArray() As String    'Need to use this for Excel to prevent error of using user defined type.
 
+    On Error GoTo ErrorHandler
+    
     If WhatApp = Excel Then
         DrawingRowStart = Range(StartOfDrawings).row
         DrawingColStart = Range(StartOfDrawings).Column
@@ -448,6 +481,12 @@ Public Sub GetAllDrawings(WhatApp As AppType, ByRef Refs() As DrawingType, ByRef
             'Occupied = Occupied - 1
         End With
     End If
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: GetAllDrawings Error number=" & CStr(Err))
+    End
 End Sub
 Function StartOfDrawings() As String
 'Find start of drawing/material list
@@ -457,6 +496,8 @@ Function StartOfDrawings() As String
     Dim FirstFound As String
     Dim sh As Worksheet
 
+    On Error GoTo ErrorHandler
+    
     'Set Search value
     SearchString = "SAP"
     'Application.FindFormat.Clear
@@ -477,6 +518,12 @@ Function StartOfDrawings() As String
         End If
     Next
     StartOfDrawings = FirstFound
+Exit Function
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: StartOfDrawings Error number=" & CStr(Err))
+    End
 End Function
 Private Function OnlyAlphaNumericChars(OrigString As String) As String
 'Remove unwanted characters
@@ -485,6 +532,8 @@ Private Function OnlyAlphaNumericChars(OrigString As String) As String
     Dim sAns As String
     Dim lCtr As Long
     Dim sChar As String
+    
+    On Error GoTo ErrorHandler
     
     OrigString = Trim(OrigString)
     lLen = Len(OrigString)
@@ -501,6 +550,12 @@ Private Function OnlyAlphaNumericChars(OrigString As String) As String
         
     OnlyAlphaNumericChars = sAns
 
+Exit Function
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: OnlyAlphaNumericChars Error number=" & CStr(Err))
+    End
 End Function
 Private Function IsAlphaNumeric(sChr As String) As Boolean
 'Check that charcter is in acceptable list
@@ -511,6 +566,8 @@ Function IsDrawingType(Item As String) As WhatIsIt
 'Return the type of drawing, BOM, DWG, MAT or OTH
 'Determine whether Item is a BOM. Look for new parts lists L52xxxxxxx or old SXL & GXL numbers.
 
+    On Error GoTo ErrorHandler
+    
     If (Left(Item, 3) = "L52") Or (Item Like "*SXL*") Or (Item Like "*GXL*") Then
         IsDrawingType = BOM
     ElseIf (Len(Item) = 6 And Left(Item, 1) = "1") Or (Len(Item) = 9 And Left(Item, 2) = "52") Then
@@ -522,6 +579,12 @@ Function IsDrawingType(Item As String) As WhatIsIt
     End If
 
     'If DebugMode Then Debug.Print "WhatIsIt", Item, IsDrawingType
+Exit Function
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: IsDrawingType Error number=" & CStr(Err))
+    End
 End Function
 Sub FilterSheet()
 
@@ -533,6 +596,8 @@ Sub FilterSheet()
     Dim DescWords() As String
     
     Dim NumWordCount, DescWordCount As Integer
+    
+    On Error GoTo ErrorHandler
     
     NumWordCount = 4
     DescWordCount = 4
@@ -607,6 +672,12 @@ Sub FilterSheet()
     
     ' Place cursor in top row of results.
     ActiveSheet.AutoFilter.Range.Offset(1).SpecialCells(xlCellTypeVisible).Cells(1, 1).Select
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: FilterSheet Error number=" & CStr(Err))
+    End
 End Sub
 Sub ChooseAction()
 ' Display show menu and allow choice of current issue, old issue or show in folder
@@ -614,6 +685,8 @@ Sub ChooseAction()
     Dim Action As ActionType
     Dim Ch, Index As String
     Dim Choice As Integer
+    
+    On Error GoTo ErrorHandler
     
     SetGlobals
     
@@ -686,6 +759,12 @@ Sub ChooseAction()
             End If
         End If
     End If
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: ChooseAction Error number=" & CStr(Err))
+    End
 End Sub
 Function MsOfficeDoc(IndexFile) As String
     'Search for item in index file
@@ -693,6 +772,8 @@ Function MsOfficeDoc(IndexFile) As String
     Const MaxResults As Integer = 10
     Dim ResultArray(1 To MaxResults) As String
     Dim Index As Integer
+    
+    On Error GoTo ErrorHandler
     
     FileNum = FreeFile
     MsOfficeDoc = ""
@@ -727,10 +808,18 @@ Function MsOfficeDoc(IndexFile) As String
         Loop Until Index = Line Or MsOfficDoc <> ""
         
     End If
+Exit Function
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: MsOfficeDoc Error number=" & CStr(Err))
+    End
 End Function
 Private Sub QuickSort(ByRef Field() As DrawingType, LB As Long, UB As Long)
     Dim P1 As Long, P2 As Long, Ref As DrawingType, TEMP As DrawingType
 
+    On Error GoTo ErrorHandler
+    
     P1 = LB
     P2 = UB
     Ref = Field((P1 + P2) / 2)
@@ -756,6 +845,12 @@ Private Sub QuickSort(ByRef Field() As DrawingType, LB As Long, UB As Long)
 
     If LB < P2 Then Call QuickSort(Field, LB, P2)
     If P1 < UB Then Call QuickSort(Field, P1, UB)
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: QuickSort Error number=" & CStr(Err))
+    End
 End Sub
 Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As String) As Boolean
 ' Search for and then show or open what has been requested
@@ -779,6 +874,8 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
     Dim FileNum As Integer
     Dim nDirs As Long, nFiles As Long
     Dim lSize As Currency
+    
+    On Error GoTo ErrorHandler
     
     ShowItem = False
     MinLines = 0
@@ -882,6 +979,12 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
             End If
         End If
     End If
+Exit Function
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: ShowItem Error number=" & CStr(Err))
+    End
 End Function
 Private Function FindFile(ByVal sFol As String, sFile As String, _
    nDirs As Long, nFiles As Long) As Currency
@@ -908,11 +1011,16 @@ Private Function FindFile(ByVal sFol As String, sFile As String, _
       Next
    End If
    Exit Function
-Catch:  FileName = ""
-       Resume Next
+Catch:
+    FileName = ""
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: FindFile Error number=" & CStr(Err))
+    Resume Next
 End Function
 Sub Update(Optional UpdateMode As String = "Normal")
 
+    On Error GoTo ErrorHandler
+    
     SetGlobals
 
     ' Detect why Update has been called and write to log if just started
@@ -975,11 +1083,19 @@ Sub Update(Optional UpdateMode As String = "Normal")
         Case Else
             MsgBox "Incorrect password"
     End Select
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: Update Error number=" & CStr(Err))
+    End
 End Sub
 Sub ImportSAP()
 ' Update Macro
 ' Merge the Design Note and Drawing State exports from SAP into this spreadsheet and update the index file.
-  
+    
+    On Error GoTo ErrorHandler
+    
 ' Remove any filters
 
     Rows("7:7").Select
@@ -1040,14 +1156,28 @@ Sub ImportSAP()
     x = ActiveSheet.UsedRange.Rows.Count
     ActiveCell.SpecialCells(xlLastCell).Select
 
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: ImportSAP Error number=" & CStr(Err))
+    End
 End Sub
 Sub CreateIndexes()
 ' Generate new index files
+    On Error GoTo ErrorHandler
+    
     SetGlobals
     
     Call CreateIndexFile(GlobalCurrentIndexFile, GlobalCurrentIssueFolder, True)
     Call CreateIndexFile(GlobalOldIndexFile, GlobalOldIssueFolder, True)
     
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: CreateIndexes Error number=" & CStr(Err))
+    End
 End Sub
 Sub CreateIndexFile(Index As String, SourcePath As String, UseDosDir As Boolean)
 ' Creates a text file <Index> containing all the file paths in SourcePath
@@ -1055,6 +1185,8 @@ Sub CreateIndexFile(Index As String, SourcePath As String, UseDosDir As Boolean)
 ' DOS DIR can be faster.
 
     Dim FileNum As Integer
+    
+    On Error GoTo ErrorHandler
     
     If UseDosDir Then
         Call WriteIndexUsingDos(Index, SourcePath)
@@ -1065,11 +1197,19 @@ Sub CreateIndexFile(Index As String, SourcePath As String, UseDosDir As Boolean)
         Call WriteIndexFile(FileNum, SourcePath)
         Close FileNum
     End If
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: CreateIndexFile Error number=" & CStr(Err))
+    End
 End Sub
 Sub CreateResultFile(Item As String, IndexFile As String)
 
     Const Hide As Boolean = True    ' Set to true for normal operation, set to false to allow cmd windows to be seen.
     Dim TaskId As Long
+    
+    On Error GoTo ErrorHandler
 
     Set objShell = CreateObject("WScript.Shell")
     
@@ -1082,11 +1222,19 @@ Sub CreateResultFile(Item As String, IndexFile As String)
         TaskId = objShell.Run(Cmd, 1, True)
     End If
 
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: CreateResultFile Error number=" & CStr(Err))
+    End
 End Sub
 Sub WriteIndexUsingDos(Index As String, SourcePath As String)
 
     Const Hide As Boolean = True    ' Set to true for normal operation, set to false to allow cmd windows to be seen.
     Dim TaskId As Long
+    
+    On Error GoTo ErrorHandler
     
     Set objShell = CreateObject("WScript.Shell")
     
@@ -1099,6 +1247,12 @@ Sub WriteIndexUsingDos(Index As String, SourcePath As String)
         TaskId = objShell.Run(Cmd, 1, True)
     End If
 
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: WriteIndexUsingDOS Error number=" & CStr(Err))
+    End
 End Sub
 Sub WriteIndexFile(FileNum As Integer, SourcePath As String)
     Set MyObject = New Scripting.FileSystemObject   ' Needs Microsoft Scripting Runtime from Tools - References menu
@@ -1106,7 +1260,7 @@ Sub WriteIndexFile(FileNum As Integer, SourcePath As String)
     
     Dim PathText As String
     
-    On Error Resume Next
+    On Error GoTo ErrorHandler
 
     For Each MyFile In MySource.Files
         PathText = MyFile.Path
@@ -1116,17 +1270,31 @@ Sub WriteIndexFile(FileNum As Integer, SourcePath As String)
     For Each MySubFolder In MySource.SubFolders
         Call WriteIndexFile(FileNum, MySubFolder.Path)
     Next
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: WriteIndexFile Error number=" & CStr(Err))
+    Resume Next
 End Sub
 Sub Reset_Range()
 
 ' Delete all contents and formatting (by deleting rows) so that CTRL+End works correctly.
 
+    On Error GoTo ErrorHandler
+    
     Range("B8").Select
     Selection.End(xlDown).Offset(1, 0).Select
     Range(Selection, ActiveCell.SpecialCells(xlLastCell)).Select
     Selection.Delete Shift:=xlUp
     x = ActiveSheet.UsedRange.Rows.Count
     ActiveCell.SpecialCells(xlLastCell).Select
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: ResetRange Error number=" & CStr(Err))
+    End
 End Sub
 Public Function GetFilename(Data As String, Optional Delimiter As String = "\") As String
 ' Returns the filename only from a whole path to the file
@@ -1175,6 +1343,8 @@ End Function
 Sub Tutorial()
     ' Create link to tutorial
     
+    On Error GoTo ErrorHandler
+    
     link = "file:///" & GlobalTutorialFile
     If FileExists(GlobalTutorialFile) Then
         ' Open tutorial
@@ -1182,6 +1352,12 @@ Sub Tutorial()
     Else
         MsgBox "Tutorial File Missing."
     End If
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: Tutorial Error number=" & CStr(Err))
+    End
 End Sub
 Sub RestoreToolbars()
     ' Restore menus
@@ -1213,21 +1389,26 @@ Sub LogInformation(LogMessage As String)
 ' Write to log file
 
 Dim FileNum As Integer
+
+    On Error GoTo ErrorHandler
     
     LogMessage = Format(Now, "yyyy-mm-dd hh:mm:ss") & " Build: " & Build & " - " & UserNameWindows & " --- " & LogMessage & " ---"
     FileNum = FreeFile ' next file number
     Open GlobalLogFile For Append As #FileNum ' creates the file if it doesn't exist
     Print #FileNum, LogMessage ' write information at the end of the text file
     Close #FileNum ' close the file
+Exit Sub
+
+ErrorHandler:
+    TEMP = MsgBox(LogMessage, vbOKOnly, "Error")
 End Sub
 Public Function IsFilewriteable(ByVal filePath As String) As Boolean
 ' Determine whether filePath is writeable.
 
     Const TestFile As String = "\test.txt"
 
-    On Error Resume Next
-    Err.Clear
-    
+    On Error GoTo ErrorHandler
+        
     Dim nFileNum As Integer
     Dim TestFilePath As String
     
@@ -1244,16 +1425,34 @@ Public Function IsFilewriteable(ByVal filePath As String) As Boolean
     Kill TestFilePath
     
     IsFilewriteable = (Err.Number = 0)
+Exit Function
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: IsFileWriteable Error number=" & CStr(Err))
+    Resume Next
+    Err.Clear
 End Function
 Sub MakeDirectory(NewDir As String)
+    
+    On Error GoTo ErrorHandler
     
     'Remove any /
     NewDir = Replace(NewDir, "/", "-")
     
     If DebugMode Then Debug.Print "MkDir:", CurDir, NewDir
     If Not DirExists(NewDir) Then MkDir NewDir
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: MakeDirectory Error number=" & CStr(Err))
+    End
 End Sub
 Sub MakeFile(Item As String, NewFile As String, WhatItIs As String)
+    
+    On Error GoTo ErrorHandler
+    
     Set fso = CreateObject("Scripting.FileSystemObject")
     
     'Remove any /
@@ -1266,6 +1465,12 @@ Sub MakeFile(Item As String, NewFile As String, WhatItIs As String)
         oFile.WriteLine GlobalFileOpener & " " & Item & " " & WhatItIs
         oFile.Close
     End If
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: MakeFile Error number=" & CStr(Err))
+    End
 End Sub
 Function UserNameWindows() As String
      UserNameWindows = Environ("USERNAME")
@@ -1280,6 +1485,8 @@ Function ReadIndex(Index As String) As String()
 ' Read whole index text file into array for quicker searching
     Dim MyData As String
     
+    On Error GoTo ErrorHandler
+    
      '~~> Open the file in 1 go to read it into an array
     Open Index For Binary As #1
     MyData = Space$(LOF(1))
@@ -1287,6 +1494,12 @@ Function ReadIndex(Index As String) As String()
     Close #1
     
     ReadIndex = Split(MyData, vbCrLf)
+Exit Function
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: ReadIndex Error number=" & CStr(Err))
+    End
 End Function
 Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
 ' Check the drawing number on each row and write its path into column K
@@ -1301,6 +1514,8 @@ Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
     Dim row As Range
     Dim cell As Range
     Dim Results() As String
+    
+    On Error GoTo ErrorHandler
     
     NumRows = Range("A1", Range("A8").End(xlDown)).Rows.Count
     
@@ -1368,11 +1583,20 @@ Sub CheckForPaths(Highlight As Boolean, RecordPath As Boolean)
         End If
     Next i
     
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: CheckForPaths Error number=" & CStr(Err))
+    End
 End Sub
 Sub CheckForArchivedFiles()
 ' Add the indexed path for the drawing to each row.
 
     Const Highlight As Boolean = True, RecordPath As Boolean = False
+    
+    On Error GoTo ErrorHandler
+    
     SetGlobals
     Call LogInformation("ArchivedFiles: Start Search: Highlight=" & CStr(Highlight) & " Path=" & CStr(RecordPath))
     CurrentIndexArray = ReadIndex(GlobalCurrentIndexFile)
@@ -1380,6 +1604,12 @@ Sub CheckForArchivedFiles()
     
     Call CheckForPaths(Highlight, RecordPath)
     Call LogInformation("ArchivedFiles: Complete")
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: CheckForArchivedFiles Error number=" & CStr(Err))
+    End
 End Sub
 Public Sub KillDirs(ByVal strFolderPath As String)
 'Recursively delete files and folders
@@ -1391,6 +1621,8 @@ Public Sub KillDirs(ByVal strFolderPath As String)
    Dim strPaths()
    Dim lngFolder As Long
    Dim lngSubFolder As Long
+   
+   On Error GoTo ErrorHandler
       
    DoEvents
    
@@ -1428,5 +1660,13 @@ Public Sub KillDirs(ByVal strFolderPath As String)
     If fsoFolder.Files.Count = 0 And fsoFolder.SubFolders.Count = 0 Then
         fsoFolder.Delete
     End If
+Exit Sub
+
+ErrorHandler:
+    Call MsgBoxDelay("Sorry something appears to have gone wrong...", "Error", ShowDurationSecs)
+    Call LogInformation("Error: KillDirs Error number=" & CStr(Err))
+    End
 End Sub
+
+
 
