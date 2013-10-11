@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 19
+Const Build As String = 20
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -887,6 +887,8 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
     Drawing = Cells(ActiveCell.row, 1).Value
     Issue = Cells(ActiveCell.row, 3).Value
     Correction = Cells(ActiveCell.row, 4).Value
+    ' Remove non-alpha correction values, such as numeric ones found in SW drawings from the correction number
+    If (Correction < "A" Or Correction > "Z") Then Correction = ""
     ECRnum = Cells(ActiveCell.row, 6).Value
     
     ' Find and replace '/' with '-' for file name.
@@ -900,7 +902,7 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
     ECRnum = Replace(ECRnum, "60000000", "6-")
     ECRnum = Replace(ECRnum, "6000000", "6-")
        
-    'Generate full file name for old issue
+    ' Generate full file name for old issue
     ' Create strings for log entry
     Select Case Request
         Case ECR
@@ -1667,6 +1669,5 @@ ErrorHandler:
     Call LogInformation("Error: KillDirs Error number=" & CStr(Err))
     End
 End Sub
-
 
 
