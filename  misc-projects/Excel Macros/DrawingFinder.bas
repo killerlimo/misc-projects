@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 20
+Const Build As String = 21
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -137,7 +137,7 @@ Public Sub SetGlobals()
     
     ' Assign Log file path
     ' Select local log file if user doesn't have write access to network log file
-    If Not IsFilewriteable(GlobalProgramPath) Then
+    If Not FileExists(GlobalProgramPath & "DrawingFinderLogFile.txt") Then
         GlobalLogFile = LocalLogPath & "DrawingFinderLogFile.txt"
     Else
         GlobalLogFile = GlobalProgramPath & "DrawingFinderLogFile.txt"
@@ -1024,6 +1024,9 @@ Sub Update(Optional UpdateMode As String = "Normal")
     On Error GoTo ErrorHandler
     
     SetGlobals
+    
+    ' Write build number to cell A1
+    Range("A1").Value = "Build: " & Build
 
     ' Detect why Update has been called and write to log if just started
     Select Case UpdateMode
