@@ -24,7 +24,7 @@ Public Globalfilepath As String
 Public Globaldrive As String
 Public GlobalTutorialFile As String
 
-Const Build As String = 4
+Const Build As String = 5
 
 Const ShowDurationSecs As Integer = 5
 
@@ -155,7 +155,7 @@ Dim name As String
     ' Convert name to number to check for part number
     nameval = Val(name)
     ' Check that the name is definitely a part number
-    If name = LTrim(Str(nameval)) And (nameval > 100000 And nameval < 127000) Or (nameval > 520000000 And nameval < 530000000) Then
+    If name = LTrim(Str(nameval)) And ((nameval > 100000 And nameval < 127000) Or (nameval > 520000000 And nameval < 530000000)) Then
         IsDrawing.name = name
         IsDrawing.Drawing = False
     Else
