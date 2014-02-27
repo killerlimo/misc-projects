@@ -14,9 +14,9 @@ Private Sub Workbook_Open()
     Dim StartMode As String
     
     StartMode = "Start"
-    ' If the program has been started at the defined time then auto update.
+    ' If the program has been started at the defined time then auto update if the user is kstewart.
     HourNow = Left(Time, InStr(Time, ":") - 1)
-    If HourNow = AutoUpdateHour Then StartMode = "AutoUpdate"
+    If UserNameWindows = "kstewart" And HourNow = AutoUpdateHour Then StartMode = "AutoUpdate"
 
     Call Update(StartMode)
     ' Disable "Do you want to save changes" message
