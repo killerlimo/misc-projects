@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 21
+Const Build As String = 22
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -1238,18 +1238,28 @@ Sub WriteIndexUsingDos(Index As String, SourcePath As String)
 
     Const Hide As Boolean = True    ' Set to true for normal operation, set to false to allow cmd windows to be seen.
     Dim TaskId As Long
-    
+    Dim fso As Object
+    Dim stat As Long
+
     On Error GoTo ErrorHandler
     
     Set objShell = CreateObject("WScript.Shell")
+    Set fso = VBA.CreateObject("Scripting.FileSystemObject")
     
+    ' Create temporary index before overwriting old index if size is not zero
     ' Update current_iss index
     If Hide Then
-        Cmd = Environ$("comspec") & " /c " & "dir """ & SourcePath & """ /s/b > " & Index
+        Cmd = Environ$("comspec") & " /c " & "dir """ & SourcePath & """ /s/b > " & Index & ".tmp"
         TaskId = objShell.Run(Cmd, 0, True)
     Else
-        Cmd = Environ$("comspec") & " /k " & "dir """ & SourcePath & """ /s/b > " & Index
+        Cmd = Environ$("comspec") & " /k " & "dir """ & SourcePath & """ /s/b > " & Index & ".tmp"
         TaskId = objShell.Run(Cmd, 1, True)
+    End If
+    
+    ' Check that tmp file is not zero size, overwrite old index & delete tmp file
+    If FileLen(Index & ".tmp") > 0 Then
+        stat = fso.CopyFile(Index & ".tmp", Index, True)
+        fso.DeleteFile (Index & ".tmp")
     End If
 
 Exit Sub
