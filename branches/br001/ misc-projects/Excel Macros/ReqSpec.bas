@@ -1,4 +1,67 @@
 Attribute VB_Name = "ReqSpec"
+Sub UpdateTable()
+'
+' Copy current data into new free row in table
+'
+    Const StartRow = 69
+    Const MaxRow = 93
+    
+    ' Copy current data
+    Range("C68:AM68").Select
+    Selection.Copy
+    
+    ' Find next free row
+    Row = StartRow
+    Do
+        Row = Row + 1
+    Loop Until Cells(Row, 2) = "" Or Row = MaxRow
+    
+    If Row = MaxRow Then
+        MsgBox ("No spare rows!")
+    Else
+        Cells(Row, 3).Select
+        Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+            :=False, Transpose:=False
+        Cells(Row, 2).Select
+        Cells(Row, 2) = Date
+        Application.CutCopyMode = False
+    End If
+
+End Sub
+Sub ShowHideSheet()
+' Hide/unhide all tabs with a name containing the word 'Link'
+' Operation of macro is a toggle.
+'
+    Dim sheet As Worksheet
+
+    For Each sheet In ActiveWorkbook.Worksheets
+        If InStr(sheet.Name, "Link") Then
+            If sheet.Visible = True Then
+                sheet.Visible = False
+            Else
+                sheet.Visible = True
+            End If
+        End If
+    Next
+    
+End Sub
+Sub MoveComments()
+' Autosize & move comment to align with cell to which they refer.
+'
+  Dim cmt As Comment
+  Dim sht As Worksheet
+  
+  For Each sht In ActiveWorkbook.Worksheets
+  
+  For Each cmt In sht.Comments
+    With cmt
+        .Shape.TextFrame.AutoSize = True
+        .Shape.Top = .Parent.Top
+        .Shape.Left = .Parent.Offset(0, 1).Left
+    End With
+  Next
+  Next
+End Sub
 Sub FormatSelection()
 
 Dim Cl As Range
@@ -78,102 +141,151 @@ Else
 End If
 
 End Sub
-Sub CrossRefsMainDB()
+
+Sub CrossRefGen()
 '
-' Copy all linked reqs from main database to new sheet
-' Separate reqs with multiple links onto separate rows
+' Copy all linked reqs from active sheet to new sheet
+' Separate reqs with multiple links onto separate rows to aid comparison
+'
+' Select a cell containing the ref links to copy
 
-Dim ReqId As Range
-Dim SecondCl As Range
-
-'GoTo j2
 ' Turn off screen updates to improve performance
 Application.ScreenUpdating = False
-ActiveWorkbook.Sheets("Requirements Database").Activate
 
-' Determin number of active rows.
-MaxRows = Sheets("Requirements Database").UsedRange.Rows.Count
-i = 2
+' Get active worksheet name
+OrigSheetName = ActiveSheet.Name
+NewSheetName = OrigSheetName & "-Links"
+CreateSheet (NewSheetName)
+' Get selected column name for links
+ActiveWorkbook.Sheets(OrigSheetName).Activate
+LinkCol = ActiveCell.Column
+LinkColName = Cells(2, ActiveCell.Column)
 
+' Determine number of active rows.
+MaxRows = Sheets(OrigSheetName).UsedRange.Rows.Count
+
+' Copy linked rows
+Call CopyRows(OrigSheetName, NewSheetName, LinkCol, MaxRows)
+' Delete all the unwanted columns from the new link sheet
+Call RemoveUnwantedCols(NewSheetName, 50)
+' Determine new link column number on new sheet
+LinkCol = FindCol(NewSheetName, LinkColName)
+' Split rows with multiple links
+Call SplitRows(NewSheetName, LinkCol)
+' Tidy up the sheet
+Call TidyUp(NewSheetName, LinkCol)
+
+' Turn back on screen updates
+Application.ScreenUpdating = True
+
+MsgBox ("Links Copied")
+
+End Sub
+Sub CreateSheet(ByVal SheetName As String)
+' Create a new sheet unless it exists
+' If it exists delete its contents
+
+Dim wsTest As Worksheet
+ 
+Set wsTest = Nothing
+On Error Resume Next
+Set wsTest = ActiveWorkbook.Worksheets(SheetName)
+On Error GoTo 0
+ 
+If wsTest Is Nothing Then
+    Worksheets.Add.Name = SheetName
+Else
+    Application.DisplayAlerts = False
+    Sheets(SheetName).Delete
+    Application.DisplayAlerts = True
+    Worksheets.Add.Name = SheetName
+End If
+
+End Sub
+Sub CopyRows(ByVal FromSheet As String, ByVal ToSheet As String, ByVal LinkCol As Integer, ByVal MaxRows As Long)
+' Copy rows from one sheet to a new sheet where the link cell is not empty
+
+i = 1
 For CurrentRow = 2 To MaxRows
     ' Does it have a link?
-    ActiveWorkbook.Sheets("Requirements Database").Activate
-    CustLink = Cells(CurrentRow, 27)
-    ET400Link = Cells(CurrentRow, 28)
-    If CustLink <> "" Or ET400Link <> "" Then
+    'ActiveWorkbook.Sheets(FromSheet).Activate
+    Link = Sheets(FromSheet).Cells(CurrentRow, LinkCol)
+    If Link <> "" Then
       ' Copy row to new sheet
-      Cells(CurrentRow, 1).EntireRow.Copy Sheets("Cross Ref-DB").Cells(i, 1)
+      Sheets(FromSheet).Cells(CurrentRow, 1).EntireRow.Copy Sheets(ToSheet).Cells(i, 1)
       i = i + 1
     End If
 Next CurrentRow
 
-j1:
+End Sub
+Sub RemoveUnwantedCols(ByVal SheetName As String, MaxCols As Integer)
 ' Remove unwanted columns
-ActiveWorkbook.Sheets("Cross Ref-DB").Activate
-' Determin number of active cols.
-'MaxCols = ActiveSheet.UsedRange.Columns.Count
-MaxCols = 50
+
+ActiveWorkbook.Sheets(SheetName).Activate
 
 For CurrentCol = MaxCols To 1 Step -1
-    ' Does it have a link?
-    Header = Cells(2, CurrentCol)
-    Debug.Print Header
-    If Header <> "REQ No." And Header <> "Requirement:" And Header <> "Link to Customer Req:" And Header <> "Link to ET400 Req:" Then
+    ' Find required cols
+    Header = Cells(1, CurrentCol)
+    If InStr(UCase(Header), "REQ") = 0 And InStr(UCase(Header), "LINK") = 0 Then
       ' Delete column
       Cells(1, CurrentCol).EntireColumn.Delete
     End If
 Next CurrentCol
 
-' Turn back on screen updates
-Application.ScreenUpdating = True
+End Sub
+Function FindCol(ByVal SheetName As String, ByVal LinkColName As String)
+' Find row number containing links of interest
 
-j2:
+Set rng1 = Sheets(SheetName).UsedRange.Find(LinkColName, , xlValues, xlWhole)
+If Not rng1 Is Nothing Then
+    FindCol = rng1.Column
+Else
+    MsgBox "Not found", vbCritical
+End If
+
+End Function
+Sub SplitRows(ByVal SheetName As String, ByVal LinkCol As Long)
 ' Split rows with multiple links
-' Determin number of active rows.
-MaxRows = Sheets("Cross Ref-DB").UsedRange.Rows.Count
 
-CurrentRow = 3
+Dim rng1 As Range
+
+' Determine number of active rows.
+MaxRows = Sheets(SheetName).UsedRange.Rows.Count
+
+CurrentRow = 2
 Do
     ' Does it have multiple links?
-    CustLink = Cells(CurrentRow, 3)
+    Links = Cells(CurrentRow, LinkCol)
     ' Split into separate links
-    SepLinks = Split(CustLink, ", ")
-    'ET400Link = Cells(CurrentRow, 4)
-    NumLinks = UBound(Split(CustLink, ","))
+    SepLinks = Split(Links, ", ")
+    
+    NumLinks = UBound(Split(Links, ","))
     MaxRows = MaxRows + NumLinks
     If NumLinks > 0 Then
-        For Links = 0 To NumLinks - 1
+        For LinkCount = 0 To NumLinks - 1
             ' Insert row
             Cells(CurrentRow + 1, 1).EntireRow.Insert
             ' Copy current row
             Cells(CurrentRow, 1).EntireRow.Copy Cells(CurrentRow + 1, 1)
             ' Write single link to current row & copied
-            Cells(CurrentRow, 3) = SepLinks(Links)
-            Cells(CurrentRow + 1, 3) = SepLinks(Links + 1)
+            Cells(CurrentRow, LinkCol) = SepLinks(LinkCount)
+            Cells(CurrentRow + 1, LinkCol) = SepLinks(LinkCount + 1)
             CurrentRow = CurrentRow + 1
-        Next Links
+        Next LinkCount
     End If
     CurrentRow = CurrentRow + 1
 Loop Until CurrentRow > MaxRows
 
+End Sub
+Sub TidyUp(ByVal SheetName As String, ByVal LinkCol As Long)
 ' Move Link column & sort
-Columns("C:C").Select
+
+ActiveWorkbook.Sheets(SheetName).Activate
+
+Columns(LinkCol).Select
 Selection.Cut
 Columns("B:B").Select
 Selection.Insert Shift:=xlToRight
-Rows("2:2").Select
-Selection.AutoFilter
-ActiveWorkbook.Worksheets("Cross Ref-DB").AutoFilter.Sort.SortFields.Clear
-ActiveWorkbook.Worksheets("Cross Ref-DB").AutoFilter.Sort.SortFields.Add Key _
-    :=Range("B2"), SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:= _
-    xlSortNormal
-With ActiveWorkbook.Worksheets("Cross Ref-DB").AutoFilter.Sort
-    .Header = xlYes
-    .MatchCase = False
-    .Orientation = xlTopToBottom
-    .SortMethod = xlPinYin
-    .Apply
-End With
 
 ' Clear formatting
 ActiveSheet.Cells.Select
@@ -185,100 +297,22 @@ ActiveSheet.Range("C:C").WrapText = True
 ' Set row height
 Columns("B").RowHeight = 15
 
-' Turn back on screen updates
-Application.ScreenUpdating = True
+MaxRows = Sheets(SheetName).UsedRange.Rows.Count
 
-MsgBox ("Main Database Links Copied")
-
-End Sub
-Sub CrossRefsCustomerSpec()
-'
-' Copy all linked reqs from customer requirements to new sheet
-'
-
-Dim ReqId As Range
-Dim SecondCl As Range
-
-'GoTo j2
-
-' Turn off screen updates to improve performance
-Application.ScreenUpdating = False
-ActiveWorkbook.Sheets("Customer Requirements").Activate
-    
-' Determin number of active rows.
-MaxRows = Sheets("Customer Requirements").UsedRange.Rows.Count
-i = 2
-' Filter all reqs containing customer links
-'Range(Cells(2, 1), Cells(Rows.Count, 1).End(xlUp)).AutoFilter Field:=27, Criteria1:="<>"
-
-For CurrentRow = 2 To MaxRows
-    ' Does it have a link?
-    ActiveWorkbook.Sheets("Customer Requirements").Activate
-    ET410Link = Cells(CurrentRow, 4)
-    If ET410Link <> "" Then
-      ' Copy row to new sheet
-      Cells(CurrentRow, 1).EntireRow.Copy Sheets("Cross Ref-Cust").Cells(i, 1)
-      i = i + 1
-    End If
-Next CurrentRow
-
-j1:
-' Remove unwanted columns
-ActiveWorkbook.Sheets("Cross Ref-Cust").Activate
-' Determin number of active cols.
-'MaxCols = ActiveSheet.UsedRange.Columns.Count
-MaxCols = 50
-
-For CurrentCol = MaxCols To 1 Step -1
-    ' Does it have a link?
-    Header = Cells(2, CurrentCol)
-    If Header <> "" And Header <> "REQ No." And Header <> "Requirement:" And Header <> "Link to ET410 Req:" Then
-      ' Delete column
-      Cells(1, CurrentCol).EntireColumn.Delete
-    End If
-Next CurrentCol
-
-j2:
-' Split rows with multiple links
-' Determin number of active rows.
-MaxRows = Sheets("Cross Ref-Cust").UsedRange.Rows.Count
-
-CurrentRow = 3
-Do
-    ' Does it have multiple links?
-    CustLink = Cells(CurrentRow, 3)
-    ' Split into separate links
-    SepLinks = Split(CustLink, ", ")
-    'ET400Link = Cells(CurrentRow, 4)
-    NumLinks = UBound(Split(CustLink, ","))
-    MaxRows = MaxRows + NumLinks
-    If NumLinks > 0 Then
-        For Links = 0 To NumLinks - 1
-            ' Insert row
-            Cells(CurrentRow + 1, 1).EntireRow.Insert
-            ' Copy current row
-            Cells(CurrentRow, 1).EntireRow.Copy Cells(CurrentRow + 1, 1)
-            ' Write single link to current row & copied
-            Cells(CurrentRow, 3) = SepLinks(Links)
-            Cells(CurrentRow + 1, 3) = SepLinks(Links + 1)
-            CurrentRow = CurrentRow + 1
-        Next Links
-    End If
-    CurrentRow = CurrentRow + 1
-Loop Until CurrentRow > MaxRows
-
-' Move Link column & sort
-Columns("C:C").Select
-Selection.Cut
-Columns("B:B").Select
-Selection.Insert Shift:=xlToRight
-Rows("2:2").Select
+Rows("1:1").Select
 Selection.AutoFilter
-ActiveWorkbook.Worksheets("Cross Ref-Cust").AutoFilter.Sort.SortFields.Clear
-ActiveWorkbook.Worksheets("Cross Ref-Cust").AutoFilter.Sort.SortFields.Add Key _
-    :=Range("B2"), SortOn:=xlSortOnValues, Order:=xlAscending, DataOption:= _
-    xlSortNormal
-With ActiveWorkbook.Worksheets("Cross Ref-Cust").AutoFilter.Sort
+
+Range("A1").Select
+Range(Selection, ActiveCell.SpecialCells(xlLastCell)).Select
+ActiveWorkbook.Worksheets(SheetName).Sort.SortFields.Clear
+ActiveWorkbook.Worksheets(SheetName).Sort.SortFields.Add _
+    Key:=Range("B2:B" & MaxRows), SortOn:=xlSortOnValues, Order:=xlAscending, _
+    DataOption:=xlSortNormal
+ActiveWorkbook.Worksheets(SheetName).Sort.SortFields.Add _
+    Key:=Range("A2:A" & MaxRows), SortOn:=xlSortOnValues, Order:=xlAscending, _
+    DataOption:=xlSortNormal
+With ActiveWorkbook.Worksheets(SheetName).Sort
+    .SetRange Range("A1:E" & MaxRows)
     .Header = xlYes
     .MatchCase = False
     .Orientation = xlTopToBottom
@@ -286,94 +320,5 @@ With ActiveWorkbook.Worksheets("Cross Ref-Cust").AutoFilter.Sort
     .Apply
 End With
 
-' Clear formatting
-ActiveSheet.Cells.Select
-Selection.ClearFormats
-Selection.Columns.AutoFit
-' Reduce Requirement width
-Columns("C").ColumnWidth = 100
-ActiveSheet.Range("C:C").WrapText = True
-' Set row height
-Columns("B").RowHeight = 15
-
-' Turn back on screen updates
-Application.ScreenUpdating = True
-
-MsgBox ("Customer Spec Links Copied")
-
 End Sub
-Sub CrossRefsGeneral()
-'
-' Copy all linked reqs from the current sheet to a new sheet
-'
-
-Dim ReqId As Range
-Dim SecondCl As Range
-
-' Turn off screen updates to improve performance
-Application.ScreenUpdating = False
-'ActiveWorkbook.Sheets("Customer Requirements").Activate
-    
-'GoTo j1
-' Determin number of active rows.
-MaxRows = ActiveSheet.UsedRange.Rows.Count
-i = 2
-' Filter all reqs containing customer links
-'Range(Cells(2, 1), Cells(Rows.Count, 1).End(xlUp)).AutoFilter Field:=27, Criteria1:="<>"
-
-For CurrentRow = 2 To MaxRows
-    ' Does it have a link?
-    ActiveWorkbook.Sheets("Customer Requirements").Activate
-    ET410Link = Cells(CurrentRow, 4)
-    If ET410Link <> "" Then
-      ' Copy row to new sheet
-      Cells(CurrentRow, 1).EntireRow.Copy Sheets("Cross Ref-Cust").Cells(i, 1)
-      i = i + 1
-    End If
-Next CurrentRow
-
-j1:
-' Remove unwanted columns
-ActiveWorkbook.Sheets("Cross Ref-Cust").Activate
-' Determin number of active cols.
-'MaxCols = ActiveSheet.UsedRange.Columns.Count
-MaxCols = 50
-
-For CurrentCol = MaxCols To 1 Step -1
-    ' Does it have a link?
-    Header = Cells(2, CurrentCol)
-    If Header <> "" And Header <> "REQ No." And Header <> "Requirement:" And Header <> "Link to ET410 Req:" Then
-      ' Delete column
-      Cells(1, CurrentCol).EntireColumn.Delete
-    End If
-Next CurrentCol
-
-' Clear formatting
-ActiveSheet.Cells.Select
-Selection.ClearFormats
-Selection.Columns.AutoFit
-' Reduce Requirement width
-Columns("B").ColumnWidth = 100
-ActiveSheet.Range("B:B").WrapText = True
-' Set row height
-Columns("B").RowHeight = 15
-
-' Turn back on screen updates
-Application.ScreenUpdating = True
-
-' Add filter and freeze pane
-Rows("2:2").Select
-Selection.AutoFilter
-Range("B3").Select
-ActiveWindow.FreezePanes = True
-
-MsgBox ("Customer Spec Links Copied")
-
-End Sub
-
-
-
-
-
-
 
