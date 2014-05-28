@@ -28,6 +28,160 @@ Sub UpdateTable()
     End If
 
 End Sub
+Sub FindAllRefs()
+' Take ref in current highlighted cell and find all occurences in all sheets and list them.
+'
+    Dim SearchString As String
+    Dim SearchRange As Range, cl As Range
+    Dim FirstFound As String
+    Dim sh As Worksheet
+    Dim results As String
+    
+    SearchString = ActiveCell.Value
+    Debug.Print "++++++++++++++++"
+    For Each sh In ActiveWorkbook.Worksheets
+        ' Ignore all sheets with Link or Sand in the name
+        If InStr(sh.Name, "Link") = 0 And InStr(sh.Name, "Sand") = 0 Then
+            Set cl = sh.Cells.Find(What:=SearchString, _
+                After:=sh.Cells(1, 1), _
+                LookIn:=xlValues, _
+                LookAt:=xlPart, _
+                SearchOrder:=xlByRows, _
+                SearchDirection:=xlNext, _
+                MatchCase:=False, _
+                SearchFormat:=False)
+            If Not cl Is Nothing Then
+                ' if found, remember location
+                FirstFound = cl.Address
+                ' format found cell
+                Do
+                    Debug.Print sh.Name, cl, cl.Address
+                    results = results & " " & sh.Name & " " & cl & " " & cl.Address & vbLf
+                    
+                    ' find next instance
+                    Set cl = sh.Cells.FindNext(After:=cl)
+                    ' repeat until back where we started
+                Loop Until FirstFound = cl.Address
+            End If
+        End If
+    Next
+    ' Display results
+    MsgBox results
+    
+End Sub
+Sub GotoRef()
+' Take user to linked reference.
+' Cursor must  be in cell containing reference.
+
+    Dim ws As Worksheet
+    Dim ReturnSheet As Worksheet
+    
+    SearchRef = ActiveCell.Value
+    Set ReturnSheet = ActiveSheet
+    ReturnAddress = ActiveCell.Address
+    
+    Found = False
+    
+        Debug.Print "++++++++++++++++"
+    For Each ws In ActiveWorkbook.Worksheets
+        ' Ignore all sheets with Link or Sand in the name
+        If InStr(ws.Name, "Link") = 0 And InStr(ws.Name, "Sand") = 0 Then
+            Debug.Print ws.Name
+            Set cl = ws.Cells.Find(What:=SearchRef, _
+                After:=ws.Cells(1, 1), _
+                LookIn:=xlValues, _
+                LookAt:=xlPart, _
+                SearchOrder:=xlByRows, _
+                SearchDirection:=xlNext, _
+                MatchCase:=False, _
+                SearchFormat:=False)
+                
+            If Not cl Is Nothing Then
+                FirstFound = cl.Address
+
+                Do
+                    Debug.Print cl.Address
+                    ' Look for ref in column A only
+                    If Left(cl.Address, 3) = "$A$" Then
+                        ws.Activate
+                        ws.Range(cl.Address).Activate
+                        Found = True
+                    End If
+                    ' find next instance
+                    Set cl = ws.Cells.FindNext(After:=cl)
+                    ' repeat until back where we started
+                Loop Until FirstFound = cl.Address
+            End If
+        End If
+    Next
+    
+    If Found Then
+        MsgBox "Click OK to return to original requirement"
+        ReturnSheet.Activate
+    Else
+        MsgBox "Ref not found"
+    End If
+    
+End Sub
+Sub ShowRef()
+' Take ref in current highlighted cell and find the source ref and show the requirement.
+'
+    Dim SearchString As String
+    Dim rLastCell As Range, ranrngSearchRange As Range, cl As Range
+    Dim FirstFound As String
+    Dim ws As Worksheet
+    Dim Req As String, results As String
+    
+    SearchRef = ActiveCell.Value
+    Debug.Print "++++++++++++++++"
+    For Each ws In ActiveWorkbook.Worksheets
+        ' Ignore all sheets with Link or Sand in the name
+        If InStr(ws.Name, "Link") = 0 And InStr(ws.Name, "Sand") = 0 Then
+        
+            Set cl = ws.Cells.Find(What:=SearchRef, _
+                After:=ws.Cells(1, 1), _
+                LookIn:=xlValues, _
+                LookAt:=xlPart, _
+                SearchOrder:=xlByRows, _
+                SearchDirection:=xlNext, _
+                MatchCase:=False, _
+                SearchFormat:=False)
+                
+            If Not cl Is Nothing Then
+                ' if found, remember location
+                FirstFound = cl.Address
+                
+                ' Find Req Column
+                
+                Set rLastCell = ws.Cells.Find(What:="*", After:=ws.Cells(1, 1), _
+                LookIn:=xlFormulas, LookAt:=xlPart, SearchOrder:=xlByColumns, _
+                SearchDirection:=xlPrevious, MatchCase:=False)
+
+                Col = 0
+                Do
+                    Col = Col + 1
+                Loop Until Cells(2, Col) = "Requirement:" Or Col > rLastCell.Column
+                
+                If Col <= rLastCell.Column Then
+                    Do
+                        ' Look for ref in column A only
+                        If Left(cl.Address, 3) = "$A$" Then
+                            Req = ws.Cells(Range(cl.Address).Row, Col).Value
+                            Debug.Print ws.Name, Ref, Req
+                            results = results & ws.Name & " " & SearchRef & " " & Req & vbLf
+                        End If
+                        ' find next instance
+                        Set cl = ws.Cells.FindNext(After:=cl)
+                        ' repeat until back where we started
+                    Loop Until FirstFound = cl.Address
+                End If
+            End If
+        End If
+    Next
+    ' Display results
+    MsgBox results
+    
+End Sub
 Sub ShowHideSheet()
 ' Hide/unhide all tabs with a name containing the word 'Link'
 ' Operation of macro is a toggle.
@@ -64,7 +218,7 @@ Sub MoveComments()
 End Sub
 Sub FormatSelection()
 
-Dim Cl As Range
+Dim cl As Range
 Dim SearchText As String
 Dim StartPos As Integer
 Dim EndPos As Integer
@@ -80,23 +234,24 @@ Application.DisplayAlerts = True
 If SearchText = "" Then
     Exit Sub
 Else
-    For Each Cl In Selection
+    For Each cl In Selection
       TotalLen = Len(SearchText)
-      StartPos = InStr(Cl, SearchText)
+      StartPos = InStr(cl, SearchText)
       TestPos = 0
       Do While StartPos > TestPos
-        With Cl.Characters(StartPos, TotalLen).Font
+        With cl.Characters(StartPos, TotalLen).Font
           .FontStyle = "Bold"
           .ColorIndex = 3
         End With
         EndPos = StartPos + TotalLen
         TestPos = TestPos + EndPos
-        StartPos = InStr(TestPos, Cl, SearchText, vbTextCompare)
+        StartPos = InStr(TestPos, cl, SearchText, vbTextCompare)
       Loop
-    Next Cl
+    Next cl
 End If
 
 End Sub
+
 Sub CheckIDnums()
 '
 ' Check that the numberic part of the REQ ID is unique.
