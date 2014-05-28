@@ -75,18 +75,37 @@ Sub GotoRef()
 
     Dim ws As Worksheet
     Dim ReturnSheet As Worksheet
+    Dim Refs() As String
     
     SearchRef = ActiveCell.Value
+    ' Remove all spaces
+    SearchRef = Replace(SearchRef, " ", "")
+    ' Look to see if cell contains multiple refs
+    If InStr(SearchRef, ",") > 0 Then
+        ' Split cell into separate refs
+        Refs = Split(SearchRef, ",")
+        ' Build menu
+        For i = 0 To UBound(Refs)
+            Menu = Menu & i + 1 & ". " & Refs(i) & vbLf
+        Next i
+        ' Show menu and allow choice
+        Do Until (Choice > 0) And (Choice <= i)
+            Ch = InputBox(Menu, "Choose option:", 1)
+            ' Check for Escape key
+            If Ch = "" Then Exit Sub Else Choice = Int(Ch)
+        Loop
+        SearchRef = Refs(Choice - 1)
+    End If
+    ' Check if blank and then set a string that is impossible to find.
+    If SearchRef = "" Then SearchRef = "*BLANK*"
     Set ReturnSheet = ActiveSheet
     ReturnAddress = ActiveCell.Address
     
     Found = False
     
-        Debug.Print "++++++++++++++++"
     For Each ws In ActiveWorkbook.Worksheets
         ' Ignore all sheets with Link or Sand in the name
         If InStr(ws.Name, "Link") = 0 And InStr(ws.Name, "Sand") = 0 Then
-            Debug.Print ws.Name
             Set cl = ws.Cells.Find(What:=SearchRef, _
                 After:=ws.Cells(1, 1), _
                 LookIn:=xlValues, _
@@ -98,7 +117,6 @@ Sub GotoRef()
                 
             If Not cl Is Nothing Then
                 FirstFound = cl.Address
-
                 Do
                     Debug.Print cl.Address
                     ' Look for ref in column A only
