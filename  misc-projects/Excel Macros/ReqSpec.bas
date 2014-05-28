@@ -101,6 +101,9 @@ Sub GotoRef()
     Set ReturnSheet = ActiveSheet
     ReturnAddress = ActiveCell.Address
     
+    ' Make a note of req ID
+    ReqId = Cells(ActiveCell.Row, 1)
+    
     Found = False
     
     For Each ws In ActiveWorkbook.Worksheets
@@ -118,7 +121,6 @@ Sub GotoRef()
             If Not cl Is Nothing Then
                 FirstFound = cl.Address
                 Do
-                    Debug.Print cl.Address
                     ' Look for ref in column A only
                     If Left(cl.Address, 3) = "$A$" Then
                         ws.Activate
@@ -134,8 +136,15 @@ Sub GotoRef()
     Next
     
     If Found Then
-        MsgBox "Click OK to return to original requirement"
-        ReturnSheet.Activate
+        ' Check that source req ID appears in row, i.e. link is good.
+        lnRow = ActiveCell.Row
+        On Error Resume Next
+        lnCol = Cells(lnRow, 1).EntireRow.Find(What:=ReqId, LookIn:=xlValues, LookAt:=xlPart, SearchOrder:=xlByColumns, SearchDirection:=xlNext, MatchCase:=False).Column
+        If Err.Number <> 0 Then MsgBox "This requirement is missing its link to " & ReqId
+        On Error GoTo 0
+        
+        Reply = MsgBox("Click OK to return to original requirement" & vbLf & "Cancel to remain here", vbOKCancel)
+        If Reply = vbOK Then ReturnSheet.Activate
     Else
         MsgBox "Ref not found"
     End If
