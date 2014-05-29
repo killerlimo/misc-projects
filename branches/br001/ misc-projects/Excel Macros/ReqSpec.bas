@@ -1,13 +1,14 @@
 Attribute VB_Name = "ReqSpec"
 Sub UpdateTable()
 '
+' Update Progress table
 ' Copy current data into new free row in table
 '
     Const StartRow = 69
     Const MaxRow = 93
     
     ' Copy current data
-    Range("C68:AM68").Select
+    Range("CurrentStat").Select
     Selection.Copy
     
     ' Find next free row
