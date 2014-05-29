@@ -1,14 +1,13 @@
 Attribute VB_Name = "ReqSpec"
 Sub UpdateTable()
 '
-' Update Progress table
 ' Copy current data into new free row in table
 '
     Const StartRow = 69
     Const MaxRow = 93
     
     ' Copy current data
-    Range("CurrentStat").Select
+    Range("C68:AM68").Select
     Selection.Copy
     
     ' Find next free row
@@ -105,6 +104,25 @@ Sub GotoRef()
     ' Make a note of req ID
     ReqId = Cells(ActiveCell.Row, 1)
     
+    ' Capture AutoFilter settings
+    With ReturnSheet.AutoFilter
+        currentFiltRange = .Range.Address
+        With .Filters
+            ReDim filterArray(1 To .Count, 1 To 3)
+            For f = 1 To .Count
+                With .Item(f)
+                    If .On Then
+                        filterArray(f, 1) = .Criteria1
+                        If .Operator Then
+                            filterArray(f, 2) = .Operator
+                            ' filterArray(f, 3) = .Criteria2 'simply delete this line to make it work in Excel 2010
+                        End If
+                    End If
+                End With
+            Next f
+        End With
+    End With
+    
     Found = False
     
     For Each ws In ActiveWorkbook.Worksheets
@@ -152,6 +170,21 @@ Sub GotoRef()
         
         Reply = MsgBox("Click OK to return to original requirement" & vbLf & "Cancel to remain here", vbOKCancel)
         If Reply = vbOK Then ReturnSheet.Activate
+        
+            ' Restore Filter settings
+            For Col = 1 To UBound(filterArray(), 1)
+                If Not IsEmpty(filterArray(Col, 1)) Then
+                    If filterArray(Col, 2) Then
+                        ReturnSheet.Range(currentFiltRange).AutoFilter field:=Col, _
+                        Criteria1:=filterArray(Col, 1), _
+                        Operator:=filterArray(Col, 2), _
+                        Criteria2:=filterArray(Col, 3)
+                    Else
+                        ReturnSheet.Range(currentFiltRange).AutoFilter field:=Col, _
+                        Criteria1:=filterArray(Col, 1)
+                    End If
+                End If
+            Next Col
     Else
         MsgBox "Ref not found"
     End If
