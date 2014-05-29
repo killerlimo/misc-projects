@@ -109,9 +109,15 @@ Sub GotoRef()
     For Each ws In ActiveWorkbook.Worksheets
         ' Ignore all sheets with Link or Sand in the name
         If InStr(ws.Name, "Link") = 0 And InStr(ws.Name, "Sand") = 0 Then
+            
+            ' Remove any auto filters otherwise results will not be found
+            On Error Resume Next
+            Worksheets(ws.Name).ShowAllData
+            On Error GoTo 0
+            
             Set cl = ws.Cells.Find(What:=SearchRef, _
                 After:=ws.Cells(1, 1), _
-                LookIn:=xlValues, _
+                LookIn:=xlFormulas, _
                 LookAt:=xlPart, _
                 SearchOrder:=xlByRows, _
                 SearchDirection:=xlNext, _
