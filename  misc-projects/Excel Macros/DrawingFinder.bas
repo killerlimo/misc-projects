@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 22
+Const Build As String = 23
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -1260,6 +1260,8 @@ Sub WriteIndexUsingDos(Index As String, SourcePath As String)
     If FileLen(Index & ".tmp") > 0 Then
         stat = fso.CopyFile(Index & ".tmp", Index, True)
         fso.DeleteFile (Index & ".tmp")
+    Else
+        Call LogInformation("Error: WriteIndexUsingDOS: Index has zero length: " & Index)
     End If
 
 Exit Sub
