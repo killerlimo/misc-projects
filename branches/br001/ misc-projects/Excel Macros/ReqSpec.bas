@@ -1,13 +1,29 @@
 Attribute VB_Name = "ReqSpec"
+Sub ClearFilter()
+' Clear the autofilter on the current worksheet.
+    If ActiveSheet.AutoFilterMode Then ActiveSheet.ShowAllData
+End Sub
+Sub DeleteRow()
+' Change font to strikeout on current row.
+' Cursor must be in on the row to be formatted.
+
+    StartingCell = ActiveCell.Address
+    Rows(ActiveCell.Row).Select
+    Selection.Font.Strikethrough = True
+    ' Return cursor to original cell
+    Range(StartingCell).Select
+    
+End Sub
 Sub UpdateTable()
 '
+' Update Progress table
 ' Copy current data into new free row in table
 '
     Const StartRow = 69
     Const MaxRow = 93
     
     ' Copy current data
-    Range("C68:AM68").Select
+    Range("CurrentStat").Select
     Selection.Copy
     
     ' Find next free row
@@ -170,21 +186,20 @@ Sub GotoRef()
         
         Reply = MsgBox("Click OK to return to original requirement" & vbLf & "Cancel to remain here", vbOKCancel)
         If Reply = vbOK Then ReturnSheet.Activate
-        
-            ' Restore Filter settings
-            For Col = 1 To UBound(filterArray(), 1)
-                If Not IsEmpty(filterArray(Col, 1)) Then
-                    If filterArray(Col, 2) Then
-                        ReturnSheet.Range(currentFiltRange).AutoFilter field:=Col, _
-                        Criteria1:=filterArray(Col, 1), _
-                        Operator:=filterArray(Col, 2), _
-                        Criteria2:=filterArray(Col, 3)
-                    Else
-                        ReturnSheet.Range(currentFiltRange).AutoFilter field:=Col, _
-                        Criteria1:=filterArray(Col, 1)
-                    End If
+        ' Restore Filter settings
+        For col = 1 To UBound(filterArray(), 1)
+            If Not IsEmpty(filterArray(col, 1)) Then
+                If filterArray(col, 2) Then
+                    ReturnSheet.Range(currentFiltRange).AutoFilter field:=col, _
+                    Criteria1:=filterArray(col, 1), _
+                    Operator:=filterArray(col, 2), _
+                    Criteria2:=filterArray(col, 3)
+                Else
+                    ReturnSheet.Range(currentFiltRange).AutoFilter field:=col, _
+                    Criteria1:=filterArray(col, 1)
                 End If
-            Next Col
+            End If
+        Next col
     Else
         MsgBox "Ref not found"
     End If
@@ -224,16 +239,16 @@ Sub ShowRef()
                 LookIn:=xlFormulas, LookAt:=xlPart, SearchOrder:=xlByColumns, _
                 SearchDirection:=xlPrevious, MatchCase:=False)
 
-                Col = 0
+                col = 0
                 Do
-                    Col = Col + 1
-                Loop Until Cells(2, Col) = "Requirement:" Or Col > rLastCell.Column
+                    col = col + 1
+                Loop Until Cells(2, col) = "Requirement:" Or col > rLastCell.Column
                 
-                If Col <= rLastCell.Column Then
+                If col <= rLastCell.Column Then
                     Do
                         ' Look for ref in column A only
                         If Left(cl.Address, 3) = "$A$" Then
-                            Req = ws.Cells(Range(cl.Address).Row, Col).Value
+                            Req = ws.Cells(Range(cl.Address).Row, col).Value
                             Debug.Print ws.Name, Ref, Req
                             results = results & ws.Name & " " & SearchRef & " " & Req & vbLf
                         End If
@@ -543,4 +558,173 @@ With ActiveWorkbook.Worksheets(SheetName).Sort
 End With
 
 End Sub
+' Usage example:
+'    Dim strAFilterRng As String    ' Autofilter range
+'    Dim varFilterCache()           ' Autofilter cache
+'    ' [set up code]
+'    Set wksAF = Worksheets("Configuration")
+'
+'    ' Check for autofilter, turn off if active..
+'    SaveFilters wksAF, strAFilterRng, varFilterCache
+'    [code with filter off]
+'    [set up special auto-filter if required]
+'    [code with filter on as applicable]
+'    ' Restore original autofilter if present ..
+'    RestoreFilters wksAF, strAFilterRng, varFilterCache
+
+'~~~~~~~~~~~~~~~~~~~~~~~~~~~
+' Sub:      SaveFilters
+' Purpose:  Save filter on worksheet
+' Returns:  wks.AutoFilterMode when function entered
+'
+' Arguments:
+'   [Name]      [Type]  [Description]
+'   wks         I/P     Worksheet that filter may reside on
+'   FilterRange O/P     Range on which filter is applied as string; "" if no filter
+'   FilterCache O/P     Variant dynamic array in which to save filter
+'
+' Author:   Based on MS Excel AutoFilter Object help file
+'
+' Modifications:
+' 2006/12/11 Phil Spencer: Adapted as general purpose routine
+' 2007/03/23 PJS: Now turns off .AutoFilterMode
+' 2013/03/13 PJS: Initial mods for XL14, which has more operators
+'
+' Comments:
+'----------------------------
+Function SaveFilters(wks As Worksheet, FilterRange As String, FilterCache()) As Boolean
+    Dim ii As Long
+
+    FilterRange = ""    ' Alternative signal for no autofilter active
+    SaveFilters = wks.AutoFilterMode
+    If SaveFilters Then
+        With wks.AutoFilter
+            FilterRange = .Range.Address
+            With .Filters
+                ReDim FilterCache(1 To .Count, 1 To 3)
+                For ii = 1 To .Count
+                    With .Item(ii)
+                        If .On Then
+#If False Then ' XL11 code
+                            FilterCache(ii, 1) = .Criteria1
+                            If .Operator Then
+                                FilterCache(ii, 2) = .Operator
+                                FilterCache(ii, 3) = .Criteria2
+                            End If
+#Else   ' first pass XL14
+                            Select Case .Operator
+
+                            Case 1, 2   'xlAnd, xlOr
+                                FilterCache(ii, 1) = .Criteria1
+                                FilterCache(ii, 2) = .Operator
+                                FilterCache(ii, 3) = .Criteria2
+
+                            Case 0, 3 To 7 ' no operator, xlTop10Items, _
+ xlBottom10Items, xlTop10Percent, xlBottom10Percent, xlFilterValues
+                                FilterCache(ii, 1) = .Criteria1
+                                FilterCache(ii, 2) = .Operator
+
+                            Case Else    ' These are not correctly restored; there's someting in Criteria1 but can't save it.
+                                FilterCache(ii, 2) = .Operator
+                                ' FilterCache(ii, 1) = .Criteria1   ' <-- Generates an error
+                                ' No error in next statement, but couldn't do restore operation
+                                ' Set FilterCache(ii, 1) = .Criteria1
+
+                            End Select
+#End If
+                        End If
+                    End With ' .Item(ii)
+                Next
+            End With ' .Filters
+        End With ' wks.AutoFilter
+        wks.AutoFilterMode = False  ' turn off filter
+    End If ' wks.AutoFilterMode
+End Function
+
+'~~~~~~~~~~~~~~~~~~~~~~~~~~~
+' Sub:      RestoreFilters
+' Purpose:  Restore filter on worksheet
+' Arguments:
+'   [Name]      [Type]  [Description]
+'   wks         I/P     Worksheet that filter resides on
+'   FilterRange I/P     Range on which filter is applied
+'   FilterCache I/P     Variant dynamic array containing saved filter
+'
+' Author:   Based on MS Excel AutoFilter Object help file
+'
+' Modifications:
+' 2006/12/11 Phil Spencer: Adapted as general purpose routine
+' 2013/03/13 PJS: Initial mods for XL14, which has more operators
+'
+' Comments:
+'----------------------------
+Sub RestoreFilters(wks As Worksheet, FilterRange As String, FilterCache())
+    Dim col As Long
+
+    wks.AutoFilterMode = False ' turn off any existing auto-filter
+    If FilterRange <> "" Then
+        wks.Range(FilterRange).AutoFilter ' Turn on the autofilter
+        For col = 1 To UBound(FilterCache(), 1)
+
+#If False Then  ' XL11
+            If Not IsEmpty(FilterCache(col, 1)) Then
+                If FilterCache(col, 2) Then
+                    wks.Range(FilterRange).AutoFilter field:=col, _
+                        Criteria1:=FilterCache(col, 1), _
+                            Operator:=FilterCache(col, 2), _
+                        Criteria2:=FilterCache(col, 3)
+                Else
+                    wks.Range(FilterRange).AutoFilter field:=col, _
+                        Criteria1:=FilterCache(col, 1)
+                End If
+            End If
+#Else
+
+            If Not IsEmpty(FilterCache(col, 2)) Then
+                Select Case FilterCache(col, 2)
+
+                Case 0  ' no operator
+                    wks.Range(FilterRange).AutoFilter field:=col, _
+                        Criteria1:=FilterCache(col, 1) ' Do NOT reload 'Operator'
+
+                Case 1, 2   'xlAnd, xlOr
+                    wks.Range(FilterRange).AutoFilter field:=col, _
+                        Criteria1:=FilterCache(col, 1), _
+                        Operator:=FilterCache(col, 2), _
+                        Criteria2:=FilterCache(col, 3)
+
+                Case 3 To 6 ' xlTop10Items, xlBottom10Items, xlTop10Percent, xlBottom10Percent
+#If True Then
+                    wks.Range(FilterRange).AutoFilter field:=col, _
+                        Criteria1:=FilterCache(col, 1) ' Do NOT reload 'Operator' , it doesn't work
+                    ' wks.AutoFilter.Filters.Item(col).Operator = FilterCache(col, 2)
+#Else ' Trying to restore Operator as well as Criteria ..
+                    ' Including the 'Operator:=' arguement leads to error.
+                    ' Criteria1 is expressed as if for a FALSE .Operator
+                    wks.Range(FilterRange).AutoFilter field:=col, _
+                        Criteria1:=FilterCache(col, 1), _
+                        Operator:=FilterCache(col, 2)
+#End If
+
+                Case 7  'xlFilterValues
+                    wks.Range(FilterRange).AutoFilter field:=col, _
+                        Criteria1:=FilterCache(col, 1), _
+                        Operator:=FilterCache(col, 2)
+
+#If False Then ' Switch on filters on cell formats
+' These statements restore the filter, but cannot reset the pass Criteria, so the filter hides all data.
+' Leave it off instead.
+                Case Else   ' (Various filters on data format)
+                    wks.Range(FilterRange).AutoFilter field:=col, _
+                        Operator:=FilterCache(col, 2)
+#End If ' Switch on filters on cell formats
+
+                End Select
+            End If
+
+#End If     ' XL11 / XL14
+        Next col
+    End If
+End Sub
+
 
