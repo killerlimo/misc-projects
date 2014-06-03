@@ -93,6 +93,14 @@ Sub GotoRef()
     Dim ReturnSheet As Worksheet
     Dim Refs() As String
     
+    ' Variables for initial sheet
+    Dim strAFilterRng As String    ' Autofilter range
+    Dim varFilterCache()           ' Autofilter cache
+    
+    ' Variables for each sheet to be searched
+    Dim strSearchAFilterRng As String    ' Autofilter range
+    Dim varSearchFilterCache()           ' Autofilter cache
+    
     SearchRef = ActiveCell.Value
     ' Remove all spaces
     SearchRef = Replace(SearchRef, " ", "")
@@ -121,30 +129,14 @@ Sub GotoRef()
     ReqId = Cells(ActiveCell.Row, 1)
     
     ' Capture AutoFilter settings
-    With ReturnSheet.AutoFilter
-        currentFiltRange = .Range.Address
-        With .Filters
-            ReDim filterArray(1 To .Count, 1 To 3)
-            For f = 1 To .Count
-                With .Item(f)
-                    If .On Then
-                        filterArray(f, 1) = .Criteria1
-                        If .Operator Then
-                            filterArray(f, 2) = .Operator
-                            ' filterArray(f, 3) = .Criteria2 'simply delete this line to make it work in Excel 2010
-                        End If
-                    End If
-                End With
-            Next f
-        End With
-    End With
+    ' Check for autofilter, turn off if active..
+    SaveFilters ReturnSheet, strAFilterRng, varFilterCache
     
     Found = False
     
     For Each ws In ActiveWorkbook.Worksheets
         ' Ignore all sheets with Link or Sand in the name
         If InStr(ws.Name, "Link") = 0 And InStr(ws.Name, "Sand") = 0 Then
-            
             ' Remove any auto filters otherwise results will not be found
             On Error Resume Next
             Worksheets(ws.Name).ShowAllData
@@ -175,7 +167,7 @@ Sub GotoRef()
             End If
         End If
     Next
-    
+
     If Found Then
         ' Check that source req ID appears in row, i.e. link is good.
         lnRow = ActiveCell.Row
@@ -186,24 +178,12 @@ Sub GotoRef()
         
         Reply = MsgBox("Click OK to return to original requirement" & vbLf & "Cancel to remain here", vbOKCancel)
         If Reply = vbOK Then ReturnSheet.Activate
-        ' Restore Filter settings
-        For col = 1 To UBound(filterArray(), 1)
-            If Not IsEmpty(filterArray(col, 1)) Then
-                If filterArray(col, 2) Then
-                    ReturnSheet.Range(currentFiltRange).AutoFilter field:=col, _
-                    Criteria1:=filterArray(col, 1), _
-                    Operator:=filterArray(col, 2), _
-                    Criteria2:=filterArray(col, 3)
-                Else
-                    ReturnSheet.Range(currentFiltRange).AutoFilter field:=col, _
-                    Criteria1:=filterArray(col, 1)
-                End If
-            End If
-        Next col
     Else
         MsgBox "Ref not found"
     End If
-    
+    ' Restore Filter settings
+    ' Restore original autofilter if present ..
+    RestoreFilters ReturnSheet, strAFilterRng, varFilterCache
 End Sub
 Sub ShowRef()
 ' Take ref in current highlighted cell and find the source ref and show the requirement.
@@ -333,7 +313,6 @@ Else
 End If
 
 End Sub
-
 Sub CheckIDnums()
 '
 ' Check that the numberic part of the REQ ID is unique.
@@ -378,7 +357,6 @@ Else
 End If
 
 End Sub
-
 Sub CrossRefGen()
 '
 ' Copy all linked reqs from active sheet to new sheet
