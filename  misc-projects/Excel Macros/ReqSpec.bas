@@ -4,9 +4,14 @@ Sub ClearFilter()
     If ActiveSheet.AutoFilterMode Then ActiveSheet.ShowAllData
 End Sub
 Sub DeleteRow()
+' Mark req as Deleted.
 ' Change font to strikeout on current row.
 ' Cursor must be in on the row to be formatted.
 
+    ' Set status to Deleted
+    Cells(ActiveCell.Row, 3) = "Deleted"
+    
+    ' Strikeout row
     StartingCell = ActiveCell.Address
     Rows(ActiveCell.Row).Select
     Selection.Font.Strikethrough = True
