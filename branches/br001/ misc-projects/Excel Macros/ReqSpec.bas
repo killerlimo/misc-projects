@@ -3,18 +3,32 @@ Sub ClearFilter()
 ' Clear the autofilter on the current worksheet.
     If ActiveSheet.AutoFilterMode Then ActiveSheet.ShowAllData
 End Sub
-Sub DeleteRow()
-' Mark req as Deleted.
-' Change font to strikeout on current row.
+Sub DeleteUndeleteRow()
+' Mark req as Deleted/Linked.
+' Toggle font to/from strikeout on current row.
 ' Cursor must be in on the row to be formatted.
 
-    ' Set status to Deleted
-    Cells(ActiveCell.Row, 3) = "Deleted"
+    ' Get current req status
+    Status = Cells(ActiveCell.Row, 3)
     
-    ' Strikeout row
-    StartingCell = ActiveCell.Address
-    Rows(ActiveCell.Row).Select
-    Selection.Font.Strikethrough = True
+    If Status = "Deleted" Then
+        ' Set status to Linked
+        Cells(ActiveCell.Row, 3) = "Linked"
+        
+        ' Clear Strikeout on row
+        StartingCell = ActiveCell.Address
+        Rows(ActiveCell.Row).Select
+        Selection.Font.Strikethrough = False
+    Else
+        ' Set status to Deleted
+        Cells(ActiveCell.Row, 3) = "Deleted"
+        
+        ' Strikeout row
+        StartingCell = ActiveCell.Address
+        Rows(ActiveCell.Row).Select
+        Selection.Font.Strikethrough = True
+    End If
+    
     ' Return cursor to original cell
     Range(StartingCell).Select
     
