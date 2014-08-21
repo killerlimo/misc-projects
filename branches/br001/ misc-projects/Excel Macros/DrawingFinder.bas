@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 23
+Const Build As String = 24
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -1219,11 +1219,11 @@ Sub CreateResultFile(Item As String, IndexFile As String)
     Set objShell = CreateObject("WScript.Shell")
     
     If Hide Then
-        Cmd = Environ$("comspec") & " /c find /i """ & Item & """ " & IndexFile & " > " & GlobalResultFile
+        Cmd = Environ$("comspec") & " /c c:\windows\system32\find /i """ & Item & """ " & IndexFile & " > " & GlobalResultFile
         TaskId = objShell.Run(Cmd, 0, True)
     Else
-        Cmd = Environ$("comspec") & " /k find /i """ & Item & """ " & IndexFile & " > " & GlobalResultFile
-        'Cmd = Environ$("comspec") & " /k find /i """ & Item & """ " & IndexFile
+        Cmd = Environ$("comspec") & " /k c:\windows\system32\find /i """ & Item & """ " & IndexFile & " > " & GlobalResultFile
+        'Cmd = Environ$("comspec") & " /k c:\windows\system32\find /i """ & Item & """ " & IndexFile
         TaskId = objShell.Run(Cmd, 1, True)
     End If
 
