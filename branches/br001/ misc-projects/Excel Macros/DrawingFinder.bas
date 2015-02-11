@@ -3,7 +3,7 @@ Attribute VB_Name = "DrawingFinder"
 'Must select Tools-Microsoft Runtime
 'Use late binding objects to allow for different versions of Excel.
 
-Const Build As String = 24
+Const Build As String = 25
 Const DebugMode = True
 Const ForceLocal = False
 
@@ -901,6 +901,11 @@ Function ShowItem(Request As RequestType, Action As ActionType, IndexFile As Str
     ECRnum = Replace(ECRnum, "600000000", "6-")
     ECRnum = Replace(ECRnum, "60000000", "6-")
     ECRnum = Replace(ECRnum, "6000000", "6-")
+    ECRnum = Replace(ECRnum, "600000", "6-")
+    ECRnum = Replace(ECRnum, "60000", "6-")
+    ECRnum = Replace(ECRnum, "6000", "6-")
+    ECRnum = Replace(ECRnum, "600", "6-")
+    ECRnum = Replace(ECRnum, "60", "6-")
        
     ' Generate full file name for old issue
     ' Create strings for log entry
